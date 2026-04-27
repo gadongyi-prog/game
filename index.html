@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가마우지 게임 모음</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-0: #0a0e1a;
+    --bg-1: #141a2e;
+    --accent-1: #6a5acd;
+    --accent-2: #00d4ff;
+    --accent-3: #f5576c;
+    --accent-4: #fee140;
+    --text: #e8eaf0;
+    --muted: #8a92a8;
+  }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg-0);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', 'Noto Sans KR', sans-serif;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 10%, rgba(106, 90, 205, 0.28), transparent 55%),
+      radial-gradient(ellipse at 80% 90%, rgba(0, 212, 255, 0.22), transparent 55%),
+      radial-gradient(ellipse at 50% 50%, rgba(245, 87, 108, 0.12), transparent 70%);
+    z-index: -1;
+  }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 64px 24px 48px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 6px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    font-size: clamp(36px, 6vw, 56px);
+    font-weight: 700;
+    background: linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+    letter-spacing: -1px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+  }
+
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 28px 24px 24px;
+    background: rgba(20, 26, 46, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--card-glow, transparent);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255,255,255,0.18);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+  }
+
+  .card:hover::before { opacity: 0.15; }
+
+  .icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin-bottom: 18px;
+    background: var(--icon-bg, rgba(255,255,255,0.08));
+  }
+
+  .card h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+  }
+
+  .card .tag {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 14px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .card p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.55;
+    flex: 1;
+    margin-bottom: 18px;
+  }
+
+  .play {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .play .arrow {
+    transition: transform 0.2s ease;
+  }
+
+  .card:hover .play .arrow {
+    transform: translateX(4px);
+  }
+
+  .card-1 { --card-glow: linear-gradient(135deg, #6a5acd, #00d4ff); --icon-bg: linear-gradient(135deg, #6a5acd, #00d4ff); }
+  .card-2 { --card-glow: linear-gradient(135deg, #f5576c, #f093fb); --icon-bg: linear-gradient(135deg, #f5576c, #f093fb); }
+  .card-3 { --card-glow: linear-gradient(135deg, #ff2a6d, #05d9e8); --icon-bg: linear-gradient(135deg, #ff2a6d, #05d9e8); }
+  .card-4 { --card-glow: linear-gradient(135deg, #fee140, #fa709a); --icon-bg: linear-gradient(135deg, #fee140, #fa709a); }
+
+  footer {
+    text-align: center;
+    margin-top: 56px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  footer a {
+    color: var(--accent-2);
+    text-decoration: none;
+  }
+
+  @media (max-width: 480px) {
+    .wrap { padding: 40px 16px 32px; }
+    header { margin-bottom: 32px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="badge">멀티플레이 · P2P</div>
+      <h1>가마우지 게임</h1>
+      <p class="subtitle">친구와 함께 즐기는 4가지 미니게임. 카드를 클릭해서 시작하세요.</p>
+    </header>
+
+    <div class="grid">
+      <a class="card card-1" href="tetris_1v1.html">
+        <div class="icon">🧩</div>
+        <h2>1:1 테트리스 대전</h2>
+        <div class="tag">2 Players</div>
+        <p>실시간으로 줄을 쌓고 상대에게 방해 블록을 보내는 클래식 대전.</p>
+        <span class="play">플레이 <span class="arrow">→</span></span>
+      </a>
+
+      <a class="card card-2" href="liar_game.html">
+        <div class="icon">🎭</div>
+        <h2>라이어 게임</h2>
+        <div class="tag">3+ Players</div>
+        <p>한 명의 라이어를 찾아라. 키워드를 모르는 사람은 누구?</p>
+        <span class="play">플레이 <span class="arrow">→</span></span>
+      </a>
+
+      <a class="card card-3" href="neon_pong.html">
+        <div class="icon">🕹️</div>
+        <h2>NEON PONG</h2>
+        <div class="tag">1v1 Arcade</div>
+        <p>네온 빛이 흐르는 레트로 아케이드 스타일의 1:1 퐁 게임.</p>
+        <span class="play">플레이 <span class="arrow">→</span></span>
+      </a>
+
+      <a class="card card-4" href="drawing_game_online.html">
+        <div class="icon">🎨</div>
+        <h2>온라인 그림 맞추기</h2>
+        <div class="tag">4 Players</div>
+        <p>그림을 그리고 단어를 맞히는 1:1:1:1 멀티 그림 퀴즈.</p>
+        <span class="play">플레이 <span class="arrow">→</span></span>
+      </a>
+    </div>
+
+    <footer>
+      <p>made with ♥ · <a href="https://pages.github.com/" target="_blank" rel="noopener">GitHub Pages</a> 로 호스팅</p>
+    </footer>
+  </div>
+</body>
+</html>

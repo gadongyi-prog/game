@@ -1,0 +1,2164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON PONG — 1v1 Arcade</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+  :root {
+    --bg-0: #050014;
+    --bg-1: #0d0328;
+    --neon-pink: #ff2a6d;
+    --neon-cyan: #05d9e8;
+    --neon-purple: #d300c5;
+    --neon-yellow: #f9f871;
+    --neon-green: #39ff14;
+    --neon-orange: #ff7b00;
+    --text: #e0e0ff;
+    --dim: #7a7a9d;
+    --font-display: 'Press Start 2P', monospace;
+    --font-body: 'VT323', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-0);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 25% 20%, rgba(5, 217, 232, 0.22), transparent 55%),
+      radial-gradient(ellipse at 75% 80%, rgba(255, 42, 109, 0.22), transparent 55%),
+      radial-gradient(ellipse at 50% 50%, rgba(211, 0, 197, 0.12), transparent 70%),
+      linear-gradient(180deg, var(--bg-0), var(--bg-1));
+    z-index: -2;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(5, 217, 232, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 42, 109, 0.04) 1px, transparent 1px);
+    background-size: 50px 50px;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .scanlines {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.14) 0,
+      rgba(0, 0, 0, 0.14) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: multiply;
+    opacity: 0.55;
+  }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .screen.active { display: flex; }
+
+  /* ========== MENU ========== */
+  #menu h1 {
+    font-family: var(--font-display);
+    font-size: clamp(32px, 6vw, 72px);
+    text-align: center;
+    line-height: 1.2;
+    margin-bottom: 10px;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-pink), var(--neon-yellow));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 18px rgba(5, 217, 232, 0.6));
+    animation: titleGlow 3s ease-in-out infinite alternate;
+    letter-spacing: 4px;
+  }
+
+  @keyframes titleGlow {
+    from { filter: drop-shadow(0 0 15px rgba(5, 217, 232, 0.6)); }
+    to   { filter: drop-shadow(0 0 35px rgba(255, 42, 109, 0.8)); }
+  }
+
+  #menu .subtitle {
+    font-family: var(--font-display);
+    font-size: 10px;
+    color: var(--neon-yellow);
+    letter-spacing: 6px;
+    margin-bottom: 40px;
+    text-shadow: 0 0 12px var(--neon-yellow);
+  }
+
+  .menu-card {
+    background: rgba(5, 0, 20, 0.75);
+    border: 2px solid var(--neon-cyan);
+    box-shadow:
+      0 0 25px rgba(5, 217, 232, 0.5),
+      inset 0 0 25px rgba(5, 217, 232, 0.08);
+    padding: 30px 40px;
+    width: min(520px, 92vw);
+    backdrop-filter: blur(10px);
+  }
+
+  .menu-card h2 {
+    font-family: var(--font-display);
+    font-size: 12px;
+    color: var(--neon-pink);
+    letter-spacing: 3px;
+    margin-bottom: 22px;
+    text-align: center;
+    text-shadow: 0 0 10px var(--neon-pink);
+  }
+
+  .menu-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    margin: 10px 0;
+    font-family: var(--font-display);
+    font-size: 14px;
+    background: transparent;
+    color: var(--text);
+    border: 2px solid var(--neon-cyan);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    box-shadow: 0 0 10px rgba(5, 217, 232, 0.3);
+  }
+  .menu-btn:hover {
+    background: var(--neon-cyan);
+    color: var(--bg-0);
+    box-shadow: 0 0 25px var(--neon-cyan);
+    transform: translateY(-2px);
+  }
+  .menu-btn.pink { border-color: var(--neon-pink); box-shadow: 0 0 10px rgba(255, 42, 109, 0.3); }
+  .menu-btn.pink:hover { background: var(--neon-pink); box-shadow: 0 0 25px var(--neon-pink); }
+  .menu-btn.yellow { border-color: var(--neon-yellow); box-shadow: 0 0 10px rgba(249, 248, 113, 0.3); }
+  .menu-btn.yellow:hover { background: var(--neon-yellow); color: var(--bg-0); box-shadow: 0 0 25px var(--neon-yellow); }
+  .menu-btn.green { border-color: var(--neon-green); box-shadow: 0 0 10px rgba(57, 255, 20, 0.3); }
+  .menu-btn.green:hover { background: var(--neon-green); color: var(--bg-0); box-shadow: 0 0 25px var(--neon-green); }
+
+  .room-input {
+    width: 100%;
+    padding: 14px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid var(--neon-purple);
+    color: var(--neon-yellow);
+    text-align: center;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin: 10px 0;
+    outline: none;
+  }
+  .room-input:focus { box-shadow: 0 0 20px var(--neon-purple); }
+
+  .room-code-display {
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px dashed var(--neon-green);
+    padding: 20px;
+    text-align: center;
+    margin: 15px 0;
+  }
+  .room-code-display .label {
+    font-family: var(--font-display);
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+  }
+  .room-code-display .code {
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: var(--neon-green);
+    letter-spacing: 6px;
+    text-shadow: 0 0 15px var(--neon-green);
+    cursor: pointer;
+  }
+  .room-code-display .hint {
+    font-size: 16px;
+    color: var(--dim);
+    margin-top: 8px;
+  }
+
+  .status-msg {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 18px;
+    color: var(--neon-yellow);
+    min-height: 24px;
+  }
+  .status-msg.error { color: var(--neon-pink); }
+
+  .back-btn {
+    margin-top: 15px;
+    background: transparent;
+    border: 1px solid var(--dim);
+    color: var(--dim);
+    padding: 8px 16px;
+    font-family: var(--font-body);
+    font-size: 16px;
+    cursor: pointer;
+    letter-spacing: 2px;
+  }
+  .back-btn:hover { color: var(--text); border-color: var(--text); }
+
+  .diff-toggle {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0;
+    justify-content: center;
+  }
+  .diff-toggle button {
+    flex: 1;
+    padding: 10px;
+    font-family: var(--font-display);
+    font-size: 10px;
+    background: transparent;
+    border: 1px solid var(--dim);
+    color: var(--dim);
+    cursor: pointer;
+    letter-spacing: 2px;
+  }
+  .diff-toggle button.on {
+    color: var(--neon-yellow);
+    border-color: var(--neon-yellow);
+    box-shadow: 0 0 10px rgba(249, 248, 113, 0.4);
+  }
+
+  /* ========== GAME ========== */
+  #game {
+    display: none;
+    position: fixed;
+    inset: 0;
+  }
+  #game.active { display: flex; flex-direction: column; }
+
+  .top-bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 14px 28px;
+    border-bottom: 2px solid rgba(5, 217, 232, 0.3);
+    background: rgba(5, 0, 20, 0.75);
+    gap: 15px;
+  }
+
+  .score-side {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .score-side.right { justify-content: flex-end; }
+
+  .player-tag {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 3px;
+    padding: 6px 10px;
+  }
+  .player-tag.you { color: var(--neon-cyan); border: 1px solid var(--neon-cyan); box-shadow: 0 0 10px rgba(5, 217, 232, 0.5); }
+  .player-tag.foe { color: var(--neon-pink); border: 1px solid var(--neon-pink); box-shadow: 0 0 10px rgba(255, 42, 109, 0.5); }
+
+  .big-score {
+    font-family: var(--font-display);
+    font-size: 36px;
+    color: var(--neon-yellow);
+    text-shadow: 0 0 18px var(--neon-yellow);
+    min-width: 56px;
+    text-align: center;
+  }
+
+  .vs-badge {
+    font-family: var(--font-display);
+    font-size: 20px;
+    color: var(--neon-purple);
+    text-shadow: 0 0 15px var(--neon-purple);
+    animation: pulse 1.5s infinite;
+    padding: 0 14px;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+  .arena {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr minmax(0, 220px);
+    align-items: center;
+    justify-items: center;
+    padding: 15px;
+    gap: 12px;
+    min-height: 0;
+    position: relative;
+  }
+
+  .arena > .canvas-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  #pongCanvas {
+    background: #000;
+    border: 2px solid var(--neon-cyan);
+    box-shadow:
+      0 0 40px rgba(5, 217, 232, 0.5),
+      inset 0 0 60px rgba(5, 217, 232, 0.06);
+    max-width: 100%;
+    max-height: 100%;
+    image-rendering: pixelated;
+  }
+
+  /* ========== ITEM GUIDE SIDEBAR ========== */
+  .item-guide {
+    width: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    background: rgba(5, 0, 20, 0.6);
+    border: 1px solid rgba(5, 217, 232, 0.3);
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-self: stretch;
+    box-shadow: inset 0 0 20px rgba(5, 217, 232, 0.05);
+  }
+
+  .item-guide::-webkit-scrollbar { width: 4px; }
+  .item-guide::-webkit-scrollbar-track { background: transparent; }
+  .item-guide::-webkit-scrollbar-thumb { background: rgba(5, 217, 232, 0.4); border-radius: 2px; }
+
+  .guide-section-title {
+    font-family: var(--font-display);
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-align: center;
+    padding-bottom: 4px;
+    border-bottom: 1px dashed rgba(249, 248, 113, 0.3);
+  }
+  .guide-section-title.buff { color: var(--neon-cyan); border-bottom-color: rgba(5, 217, 232, 0.3); }
+  .guide-section-title.sab  { color: var(--neon-pink); border-bottom-color: rgba(255, 42, 109, 0.3); }
+
+  .guide-item {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 8px;
+    align-items: center;
+    padding: 4px 2px;
+    transition: background 0.15s;
+    border-radius: 2px;
+  }
+  .guide-item:hover { background: rgba(249, 248, 113, 0.06); }
+
+  .guide-item-icon {
+    font-size: 20px;
+    text-align: center;
+  }
+  .guide-item-text {
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.15;
+    color: var(--text);
+  }
+  .guide-item-name {
+    font-family: var(--font-display);
+    font-size: 8px;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .guide-item-desc {
+    color: var(--dim);
+    font-size: 14px;
+  }
+
+  /* ========== INVENTORY ========== */
+  .bottom-bar {
+    padding: 12px 20px;
+    border-top: 2px solid rgba(249, 248, 113, 0.3);
+    background: rgba(5, 0, 20, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .inv-label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    color: var(--neon-yellow);
+    letter-spacing: 2px;
+  }
+
+  .inv-slots {
+    display: flex;
+    gap: 10px;
+  }
+
+  .slot {
+    width: 60px;
+    height: 60px;
+    border: 2px solid rgba(249, 248, 113, 0.4);
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    font-size: 28px;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .slot.has-item {
+    border-color: var(--neon-yellow);
+    box-shadow: 0 0 15px rgba(249, 248, 113, 0.6);
+    background: rgba(249, 248, 113, 0.1);
+  }
+  .slot.has-item:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 0 25px var(--neon-yellow);
+  }
+  .slot .key {
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    width: 22px;
+    height: 22px;
+    background: var(--bg-0);
+    border: 1px solid var(--neon-yellow);
+    color: var(--neon-yellow);
+    font-family: var(--font-display);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ========== OVERLAY ========== */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 0, 20, 0.88);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(5px);
+  }
+  .overlay.active { display: flex; }
+
+  .countdown-num {
+    font-family: var(--font-display);
+    font-size: 130px;
+    color: var(--neon-yellow);
+    text-shadow: 0 0 30px var(--neon-yellow), 0 0 60px var(--neon-pink);
+    animation: cdScale 1s ease-out;
+  }
+  @keyframes cdScale {
+    from { transform: scale(2.5); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+
+  .result-card {
+    background: rgba(5, 0, 20, 0.95);
+    border: 3px solid var(--neon-cyan);
+    box-shadow: 0 0 40px var(--neon-cyan);
+    padding: 40px 50px;
+    text-align: center;
+    min-width: 320px;
+  }
+  .result-card.lose { border-color: var(--neon-pink); box-shadow: 0 0 40px var(--neon-pink); }
+
+  .result-title {
+    font-family: var(--font-display);
+    font-size: 44px;
+    margin-bottom: 15px;
+    letter-spacing: 4px;
+  }
+  .result-title.win { color: var(--neon-green); text-shadow: 0 0 22px var(--neon-green); }
+  .result-title.lose { color: var(--neon-pink); text-shadow: 0 0 22px var(--neon-pink); }
+
+  .result-sub {
+    font-family: var(--font-body);
+    font-size: 22px;
+    color: var(--dim);
+    margin-bottom: 18px;
+  }
+
+  .result-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .rematch-status {
+    font-family: var(--font-display);
+    font-size: 10px;
+    color: var(--neon-yellow);
+    letter-spacing: 2px;
+    margin-top: 10px;
+    min-height: 14px;
+    text-shadow: 0 0 8px var(--neon-yellow);
+    animation: pulse 1.5s infinite;
+  }
+
+  .point-flash {
+    font-family: var(--font-display);
+    font-size: 48px;
+    letter-spacing: 6px;
+    animation: pointPulse 1.2s ease-out;
+  }
+  @keyframes pointPulse {
+    0% { transform: scale(0.3); opacity: 0; }
+    30% { transform: scale(1.3); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ========== HELP ========== */
+  .help-btn {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(5, 0, 20, 0.8);
+    border: 1px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    font-family: var(--font-display);
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 50;
+  }
+
+  .help-panel {
+    position: fixed;
+    top: 60px;
+    right: 15px;
+    width: 320px;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: rgba(5, 0, 20, 0.95);
+    border: 2px solid var(--neon-cyan);
+    box-shadow: 0 0 20px rgba(5, 217, 232, 0.5);
+    padding: 20px;
+    display: none;
+    z-index: 51;
+    font-size: 16px;
+  }
+  .help-panel.active { display: block; }
+  .help-panel h3 {
+    font-family: var(--font-display);
+    font-size: 11px;
+    color: var(--neon-yellow);
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    margin-top: 15px;
+  }
+  .help-panel h3:first-child { margin-top: 0; }
+  .help-panel p, .help-panel li { margin-bottom: 6px; color: var(--text); line-height: 1.4; }
+  .help-panel ul { list-style: none; }
+  .help-panel .item-icon { display: inline-block; width: 24px; text-align: center; }
+
+  @media (max-width: 1000px) {
+    .arena { grid-template-columns: 1fr; }
+    .item-guide { display: none; }
+  }
+  @media (max-width: 700px) {
+    .big-score { font-size: 28px; }
+    .player-tag { font-size: 9px; }
+    .slot { width: 50px; height: 50px; font-size: 22px; }
+    .top-bar { padding: 10px 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+
+<!-- ============= MENU ============= -->
+<div id="menu" class="screen active">
+  <h1>NEON PONG</h1>
+  <div class="subtitle">◆ 1 v 1 ARCADE ◆</div>
+
+  <div class="menu-card" id="menuMain">
+    <h2>◇ SELECT MODE ◇</h2>
+    <button class="menu-btn pink" id="btnHost">⚡ CREATE ROOM</button>
+    <button class="menu-btn" id="btnJoin">⚔ JOIN ROOM</button>
+    <button class="menu-btn yellow" id="btnSolo">★ VS CPU</button>
+    <div class="diff-toggle" id="diffToggle">
+      <button data-diff="easy">EASY</button>
+      <button data-diff="normal" class="on">NORMAL</button>
+      <button data-diff="hard">HARD</button>
+    </div>
+  </div>
+
+  <div class="menu-card" id="menuHost" style="display:none;">
+    <h2>◇ ROOM CREATED ◇</h2>
+    <div class="room-code-display">
+      <div class="label">SHARE THIS CODE</div>
+      <div class="code" id="roomCode" title="클릭하여 복사">LOADING...</div>
+      <div class="hint">▲ tap to copy</div>
+    </div>
+    <div class="status-msg" id="hostStatus">Waiting for opponent...</div>
+    <button class="back-btn" id="hostBack">← BACK</button>
+  </div>
+
+  <div class="menu-card" id="menuJoin" style="display:none;">
+    <h2>◇ ENTER CODE ◇</h2>
+    <input class="room-input" id="joinCode" maxlength="6" placeholder="XXXXXX" autocomplete="off">
+    <button class="menu-btn" id="btnConnect">→ CONNECT</button>
+    <div class="status-msg" id="joinStatus"></div>
+    <button class="back-btn" id="joinBack">← BACK</button>
+  </div>
+</div>
+
+<!-- ============= GAME ============= -->
+<div id="game">
+  <div class="top-bar">
+    <div class="score-side">
+      <span class="player-tag you">YOU</span>
+      <span class="big-score" id="myScore">0</span>
+    </div>
+    <div class="vs-badge">VS</div>
+    <div class="score-side right">
+      <span class="big-score" id="foeScore">0</span>
+      <span class="player-tag foe">FOE</span>
+    </div>
+  </div>
+
+  <div class="arena">
+    <div class="canvas-wrap">
+      <canvas id="pongCanvas" width="900" height="520"></canvas>
+    </div>
+    <aside class="item-guide">
+      <div class="guide-section-title buff">◇ SELF BUFF ◇</div>
+      <div class="guide-item">
+        <div class="guide-item-icon">⚡</div>
+        <div class="guide-item-text">
+          <span class="guide-item-name" style="color:var(--neon-yellow);">LONG</span>
+          <span class="guide-item-desc">Paddle ×1.7 · 8s</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">🧲</div>
+        <div class="guide-item-text">
+          <span class="guide-item-name" style="color:var(--neon-cyan);">MAGNET</span>
+          <span class="guide-item-desc">Ball pulled to paddle · 5s</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">🔥</div>
+        <div class="guide-item-text">
+          <span class="guide-item-name" style="color:var(--neon-orange);">POWER</span>
+          <span class="guide-item-desc">Next hit +50% speed</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">🛡️</div>
+        <div class="guide-item-text">
+          <span class="guide-item-name" style="color:var(--neon-green);">GHOST</span>
+          <span class="guide-item-desc">Ball phases through foe once (green)</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">🏹</div>
+        <div class="guide-item-text">
+          <span class="guide-item-name" style="color:#c77dff;">CURVE</span>
+          <span class="guide-item-desc">Concave paddle · 7s · sharper edge angles</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">🎲</div>
+        <div class="guide-item-text">
+          <span class="guide-item-name" style="color:#ff006e;">CHAOS</span>
+          <span class="guide-item-desc">Jagged paddle · 6s · random bounces</span>
+        </div>
+      </div>
+
+      <div class="guide-section-title sab">◇ SABOTAGE ◇</div>
+      <div class="guide-item">
+        <div class="guide-item-icon">🐢</div>
+        <div class="guide-item-text">
+          <span class="guide-item-name" style="color:var(--neon-purple);">SLOW</span>
+          <span class="guide-item-desc">Foe paddle slowed · 5s</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">🌀</div>
+        <div class="guide-item-text">
+          <span class="guide-item-name" style="color:var(--neon-pink);">FLIP</span>
+          <span class="guide-item-desc">Reverse foe controls · 5s</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">📏</div>
+        <div class="guide-item-text">
+          <span class="guide-item-name" style="color:#ff9500;">SHRINK</span>
+          <span class="guide-item-desc">Foe paddle ×0.5 · 6s</span>
+        </div>
+      </div>
+      <div class="guide-item">
+        <div class="guide-item-icon">👻</div>
+        <div class="guide-item-text">
+          <span class="guide-item-name" style="color:#9999aa;">FOG</span>
+          <span class="guide-item-desc">Blur foe's view · 5s</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="bottom-bar">
+    <span class="inv-label">ITEMS</span>
+    <div class="inv-slots" id="invSlots">
+      <div class="slot" data-slot="0"><span class="key">1</span><span class="icon"></span></div>
+      <div class="slot" data-slot="1"><span class="key">2</span><span class="icon"></span></div>
+      <div class="slot" data-slot="2"><span class="key">3</span><span class="icon"></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============= OVERLAY ============= -->
+<div class="overlay" id="overlay">
+  <div id="overlayContent"></div>
+</div>
+
+<!-- ============= HELP ============= -->
+<button class="help-btn" id="helpBtn">?</button>
+<div class="help-panel" id="helpPanel">
+  <h3>◇ CONTROLS ◇</h3>
+  <p>↑ ↓ / W S : Move paddle</p>
+  <p>Mouse / Touch : Drag vertically</p>
+  <p>1 / 2 / 3 : Use item</p>
+  <h3>◇ HOW TO WIN ◇</h3>
+  <p>First to <span style="color:var(--neon-yellow);">7 points</span> wins the match.</p>
+  <p>Score by getting the ball past the foe's paddle.</p>
+  <h3>◇ PADDLE ◇</h3>
+  <p>Zigzag shape — middle bulge is a <span style="color:var(--neon-yellow);">sweet spot</span>: center hits bounce back faster with sharper angles.</p>
+  <h3>◇ SELF ITEMS ◇</h3>
+  <ul>
+    <li><span class="item-icon">⚡</span> LONG — Paddle ×1.7 for 8s</li>
+    <li><span class="item-icon">🧲</span> MAGNET — Ball pulled to your paddle 5s</li>
+    <li><span class="item-icon">🔥</span> POWER — Your NEXT hit returns at high speed (ball turns orange)</li>
+    <li><span class="item-icon">🛡️</span> GHOST — Ball turns green; next time it reaches foe's paddle, it phases through</li>
+    <li><span class="item-icon">🏹</span> CURVE — Paddle becomes concave 7s; edge hits return at dramatic angles</li>
+    <li><span class="item-icon">🎲</span> CHAOS — Paddle turns jagged 6s; bounces are unpredictable (for you too!)</li>
+  </ul>
+  <h3>◇ SABOTAGE ◇</h3>
+  <ul>
+    <li><span class="item-icon">🐢</span> SLOW — Foe paddle slowed 5s</li>
+    <li><span class="item-icon">🌀</span> FLIP — Reverse foe controls 5s</li>
+    <li><span class="item-icon">📏</span> SHRINK — Foe paddle ×0.5 for 6s</li>
+    <li><span class="item-icon">👻</span> FOG — Blur foe's view 5s</li>
+  </ul>
+  <h3>◇ ITEM SPAWN ◇</h3>
+  <p>Items appear on court every ~3s (up to 2 at once). Hit them with the ball to collect.</p>
+</div>
+
+<script>
+/* =========================================================================
+   NEON PONG — 1v1 via PeerJS
+   Architecture: Authoritative Host. Host simulates all physics.
+   Guest sends its paddle position + item inputs; Host broadcasts state.
+   ========================================================================= */
+
+// ---------- Constants ----------
+const W = 900, H = 520;
+const PADDLE_H_BASE = 90;
+const PADDLE_W = 14;
+const PADDLE_MARGIN = 26;
+// Zigzag: middle third protrudes inward (toward ball) by this much.
+// Creates a "sweet spot" — hitting the middle section gives stronger angles.
+const ZIG_BULGE = 8;
+const BALL_R = 9;
+const BASE_BALL_SPEED = 9;
+const MAX_BALL_SPEED = 17;
+const BASE_PADDLE_SPEED = 10;
+const WIN_SCORE = 7;
+const NET_SYNC_MS = 33; // ~30Hz
+
+const ITEM_TYPES = {
+  LONG:   { icon: '⚡', name: 'LONG',   self: true,  color: '#f9f871' },
+  MAGNET: { icon: '🧲', name: 'MAGNET', self: true,  color: '#05d9e8' },
+  POWER:  { icon: '🔥', name: 'POWER',  self: true,  color: '#ff7b00' },
+  GHOST:  { icon: '🛡️', name: 'GHOST',  self: true,  color: '#39ff14' },
+  CURVE:  { icon: '🏹', name: 'CURVE',  self: true,  color: '#c77dff' },
+  CHAOS:  { icon: '🎲', name: 'CHAOS',  self: true,  color: '#ff006e' },
+  SLOW:   { icon: '🐢', name: 'SLOW',   self: false, color: '#d300c5' },
+  FLIP:   { icon: '🌀', name: 'FLIP',   self: false, color: '#ff2a6d' },
+  SHRINK: { icon: '📏', name: 'SHRINK', self: false, color: '#ff9500' },
+  FOG:    { icon: '👻', name: 'FOG',    self: false, color: '#9999aa' }
+};
+const ITEM_KEYS = Object.keys(ITEM_TYPES);
+
+// ---------- State ----------
+let gs = null;          // game state (shared structure; host owns authoritative values)
+let net = null;         // { peer, conn, isHost, roomId }
+let mode = null;        // 'host' | 'guest' | 'solo'
+let cpuDifficulty = 'normal';
+
+// ---------- Helpers ----------
+const rand = (a, b) => Math.random() * (b - a) + a;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// Insert an item into inventory. If full, shift out the oldest (index 0) so new one fits.
+// Returns true if inserted.
+function addItemToInventory(items, type) {
+  const empty = items.findIndex(s => s === null);
+  if (empty !== -1) {
+    items[empty] = type;
+  } else {
+    // Shift left: drop slot 0, move others down, put new in slot 2
+    items[0] = items[1];
+    items[1] = items[2];
+    items[2] = type;
+  }
+  return true;
+}
+
+function createInitialState() {
+  // Player "left" = host, "right" = guest.
+  // "me" and "foe" are rendered perspective-independently:
+  // In solo/host: me=left, foe=right.
+  // In guest: we mirror so that the player always feels on the LEFT side of view?
+  //   → We'll keep host=left visually, and for guest we FLIP render so their paddle is still on left.
+  return {
+    ball: { x: W / 2, y: H / 2, vx: BASE_BALL_SPEED * (Math.random() < 0.5 ? -1 : 1), vy: rand(-3, 3), speed: BASE_BALL_SPEED },
+    left:  { y: H/2 - PADDLE_H_BASE/2, h: PADDLE_H_BASE, targetY: H/2 - PADDLE_H_BASE/2, score: 0, items: [null,null,null], effects: newEffects() },
+    right: { y: H/2 - PADDLE_H_BASE/2, h: PADDLE_H_BASE, targetY: H/2 - PADDLE_H_BASE/2, score: 0, items: [null,null,null], effects: newEffects() },
+    courtItems: [],
+    lastItemSpawn: 0,
+    particles: [],
+    running: false,
+    pointFreeze: 0, // frames to freeze for point animation
+    servingSide: Math.random() < 0.5 ? 'left' : 'right',
+    powerCarrier: null // which side has POWER active (applies to next hit)
+  };
+}
+
+function newEffects() {
+  return { long: 0, magnet: 0, power: false, ghost: false, curve: 0, chaos: 0, slow: 0, flip: 0, shrink: 0, fog: 0 };
+}
+
+// ---------- Canvas ----------
+const canvas = document.getElementById('pongCanvas');
+const ctx = canvas.getContext('2d');
+
+// ---------- UI ----------
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function showMenuCard(id) {
+  ['menuMain','menuHost','menuJoin'].forEach(x => document.getElementById(x).style.display = 'none');
+  document.getElementById(id).style.display = 'block';
+}
+function setStatus(id, msg, isErr=false) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.toggle('error', isErr);
+}
+
+function showOverlay(html) {
+  document.getElementById('overlayContent').innerHTML = html;
+  document.getElementById('overlay').classList.add('active');
+}
+function hideOverlay() { document.getElementById('overlay').classList.remove('active'); }
+
+// Render-perspective side: both players always see themselves on the LEFT visually.
+// For solo/host: authoritative 'left' == visual 'left'  (matches directly)
+// For guest:     authoritative 'right' == visual 'left' (we mirror in applyHostState)
+// So in BOTH cases, gs.left is "my paddle" visually AND in local input handling.
+function mySide() { return 'left'; }
+function foeSide() { return 'right'; }
+// Host coord side for network messages (the authoritative id of our paddle on Host's state)
+function myHostSide() { return mode === 'guest' ? 'right' : 'left'; }
+
+function updateHUD() {
+  if (!gs) return;
+  const meS = gs[mySide()], foeS = gs[foeSide()];
+  document.getElementById('myScore').textContent = meS.score;
+  document.getElementById('foeScore').textContent = foeS.score;
+  const slots = document.querySelectorAll('.slot');
+  meS.items.forEach((item, i) => {
+    const slot = slots[i];
+    const iconSpan = slot.querySelector('.icon');
+    if (item) {
+      slot.classList.add('has-item');
+      iconSpan.textContent = ITEM_TYPES[item].icon;
+    } else {
+      slot.classList.remove('has-item');
+      iconSpan.textContent = '';
+    }
+  });
+}
+
+// ---------- Menu wiring ----------
+document.getElementById('btnHost').onclick = () => hostGame();
+document.getElementById('btnJoin').onclick = () => { showMenuCard('menuJoin'); setStatus('joinStatus',''); };
+document.getElementById('btnSolo').onclick = () => startSolo();
+document.getElementById('hostBack').onclick = () => { cleanupNet(); showMenuCard('menuMain'); };
+document.getElementById('joinBack').onclick = () => { cleanupNet(); showMenuCard('menuMain'); };
+document.getElementById('btnConnect').onclick = () => joinGame();
+document.getElementById('roomCode').onclick = () => {
+  const code = document.getElementById('roomCode').textContent;
+  if (code && code !== 'LOADING...') {
+    navigator.clipboard?.writeText(code);
+    setStatus('hostStatus', '✓ Copied! ' + code);
+  }
+};
+document.getElementById('helpBtn').onclick = () => {
+  document.getElementById('helpPanel').classList.toggle('active');
+};
+document.querySelectorAll('#diffToggle button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('#diffToggle button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    cpuDifficulty = b.dataset.diff;
+  };
+});
+
+// ---------- Networking ----------
+function genRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+function cleanupNet() {
+  if (net) {
+    try { net.conn?.close(); } catch(e) {}
+    try { net.peer?.destroy(); } catch(e) {}
+    net = null;
+  }
+}
+
+// Shared ICE server config. STUN works for most home networks; TURN relays
+// when symmetric NAT / CGNAT / corporate firewalls block direct P2P.
+// Open Relay by Metered is a free public TURN service (no signup).
+const PEER_CONFIG = {
+  debug: 1,
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun.cloudflare.com:3478' },
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
+    ]
+  }
+};
+
+function hostGame() {
+  cleanupNet();
+  mode = 'host';
+  showMenuCard('menuHost');
+  const code = genRoomCode();
+  const peerId = 'neonpong-' + code;
+  document.getElementById('roomCode').textContent = code;
+  setStatus('hostStatus', 'Connecting to server...');
+
+  const peer = new Peer(peerId, PEER_CONFIG);
+  net = { peer, conn: null, isHost: true, roomId: code };
+
+  peer.on('open', () => setStatus('hostStatus', 'Waiting for opponent...'));
+  peer.on('error', (err) => {
+    console.error(err);
+    if (err.type === 'unavailable-id') setStatus('hostStatus', 'Room code taken. Try again.', true);
+    else setStatus('hostStatus', 'Error: ' + err.type, true);
+  });
+  peer.on('connection', (conn) => {
+    net.conn = conn;
+    conn.on('open', () => {
+      setStatus('hostStatus', '✓ Opponent joined!');
+      conn.send({ type: 'start' });
+      setTimeout(() => startMultiplayer(), 500);
+    });
+    conn.on('data', handleNetData);
+    conn.on('close', handleDisconnect);
+  });
+}
+
+function joinGame() {
+  const code = document.getElementById('joinCode').value.trim().toUpperCase();
+  if (code.length !== 6) { setStatus('joinStatus', 'Code must be 6 chars.', true); return; }
+  cleanupNet();
+  mode = 'guest';
+  setStatus('joinStatus', 'Connecting...');
+  const myPeerId = 'neonpong-guest-' + Math.random().toString(36).slice(2, 8);
+  const peer = new Peer(myPeerId, PEER_CONFIG);
+  net = { peer, conn: null, isHost: false, roomId: code };
+
+  // Warn user if connection takes too long (possible strict NAT / firewall issues)
+  let timeoutWarn = setTimeout(() => {
+    if (net && !net.conn?.open) {
+      setStatus('joinStatus', 'Slow connection... trying relay server.', false);
+    }
+  }, 5000);
+  let timeoutFail = setTimeout(() => {
+    if (net && !net.conn?.open) {
+      setStatus('joinStatus', 'Connection failed. Try mobile data or another network.', true);
+    }
+  }, 20000);
+
+  peer.on('open', () => {
+    const conn = peer.connect('neonpong-' + code, { reliable: true });
+    net.conn = conn;
+    conn.on('open', () => {
+      clearTimeout(timeoutWarn);
+      clearTimeout(timeoutFail);
+      setStatus('joinStatus', '✓ Connected! Waiting for host...');
+    });
+    conn.on('data', handleNetData);
+    conn.on('close', handleDisconnect);
+    conn.on('error', () => setStatus('joinStatus', 'Connection error.', true));
+  });
+  peer.on('error', (err) => {
+    clearTimeout(timeoutWarn);
+    clearTimeout(timeoutFail);
+    if (err.type === 'peer-unavailable') setStatus('joinStatus', 'Room not found.', true);
+    else if (err.type === 'network') setStatus('joinStatus', 'Network issue. Check connection.', true);
+    else setStatus('joinStatus', 'Error: ' + err.type, true);
+  });
+}
+
+function sendNet(msg) {
+  if (net?.conn?.open) net.conn.send(msg);
+}
+
+/*
+  Protocol:
+  Host -> Guest:
+    { type:'start' }
+    { type:'state', ball, left, right, courtItem, effects? } (30Hz)
+    { type:'point', scorer, score:{left,right} }
+    { type:'gameOver', winner }
+    { type:'flash', side:'foe'|'you', text, color } (for sabotage notification)
+  Guest -> Host:
+    { type:'input', targetY } (paddle target, normalized 0..1 of H)
+    { type:'useItem', slot }
+*/
+
+function handleNetData(data) {
+  if (!data || !data.type) return;
+  switch (data.type) {
+    case 'start':
+      if (mode === 'guest') startMultiplayer();
+      break;
+    case 'state':
+      if (gs && mode === 'guest') applyHostState(data);
+      break;
+    case 'point':
+      if (mode === 'guest' && gs) {
+        // Mirror: host's 'left' score is guest's foe (gs.right); host's 'right' is guest's self (gs.left)
+        gs.right.score = data.score.left;
+        gs.left.score = data.score.right;
+        // Mirror scorer for flash: if host says 'right' scored, that's me (guest) -> 'left' locally
+        const localScorer = data.scorer === 'left' ? 'right' : 'left';
+        showPointFlash(localScorer);
+        updateHUD();
+      }
+      break;
+    case 'gameOver':
+      // winner is in HOST coords: 'left' = host player, 'right' = guest player
+      if (mode === 'guest') {
+        const iWon = data.winner === 'right'; // guest is host's 'right'
+        endGame(iWon ? 'win' : 'lose');
+      }
+      break;
+    case 'flash':
+      flashMessage(data.text, data.color);
+      break;
+    case 'input': // host receives guest paddle
+      if (mode === 'host' && gs) {
+        gs.right.targetY = data.targetY * H;
+      }
+      break;
+    case 'pickup':
+      // Host tells guest: you picked up an item
+      if (mode === 'guest' && gs) {
+        addItemToInventory(gs.left.items, data.item);
+        updateHUD();
+      }
+      break;
+    case 'useItem':
+      if (mode === 'host' && gs) hostHandleItemUse(data.item);
+      break;
+    case 'rematchRequest':
+      // Foe requests rematch after game ended
+      if (rematchState) {
+        rematchState.foe = true;
+        if (rematchState.me) {
+          // Both ready → host initiates the start
+          if (mode === 'host') beginRematch();
+        } else {
+          setRematchStatus('⚡ Foe wants a rematch!');
+          const btn = document.getElementById('rematchBtn');
+          if (btn) btn.textContent = '↻ ACCEPT REMATCH';
+        }
+      }
+      break;
+    case 'rematchStart':
+      // Host initiated rematch; guest follows
+      if (mode === 'guest') beginRematch();
+      break;
+  }
+}
+
+function handleDisconnect() {
+  if (gs && gs.running) endGame('disconnect');
+}
+
+// Guest applies state from host. We mirror X so user sees their paddle on LEFT.
+// IMPORTANT: We must NOT overwrite gs.left.y or gs.left.targetY here — that's our
+// own paddle and is driven by local input. We also don't overwrite gs.left.h or
+// gs.left.effects, which the host updates separately and sends us; the host will
+// re-apply them, but letting local input dominate is what matters for responsiveness.
+// We DO accept h/effects for our paddle because host is authoritative on item timers.
+function applyHostState(data) {
+  if (!gs) return;
+  // Ball: mirror X
+  gs.ball.x = W - data.ball.x;
+  gs.ball.y = data.ball.y;
+  gs.ball.vx = -data.ball.vx;
+  gs.ball.vy = data.ball.vy;
+  gs.ball.speed = data.ball.speed;
+  // Host's 'left' = FOE for guest (visual right)
+  gs.right.y = data.left.y;
+  gs.right.h = data.left.h;
+  gs.right.effects = data.left.effects;
+  // Host's 'right' = ME for guest (visual left) — only update h and effects (for item timers),
+  // NOT y or targetY. Local input owns those.
+  gs.left.h = data.right.h;
+  gs.left.effects = data.right.effects;
+  // Court items: mirror X for each item
+  if (data.courtItems && data.courtItems.length) {
+    gs.courtItems = data.courtItems.map(it => ({
+      id: it.id, type: it.type,
+      x: W - it.x, y: it.y
+    }));
+  } else {
+    gs.courtItems = [];
+  }
+}
+
+// ---------- Start game ----------
+function startSolo() {
+  mode = 'solo';
+  gs = createInitialState();
+  startGameUI();
+}
+
+function startMultiplayer() {
+  gs = createInitialState();
+  startGameUI();
+}
+
+function startGameUI() {
+  showScreen('game');
+  updateHUD();
+  let n = 3;
+  const tick = () => {
+    if (n > 0) {
+      showOverlay(`<div class="countdown-num">${n}</div>`);
+      n--;
+      setTimeout(tick, 750);
+    } else {
+      showOverlay(`<div class="countdown-num" style="color:var(--neon-green);text-shadow:0 0 30px var(--neon-green);">GO!</div>`);
+      setTimeout(() => {
+        hideOverlay();
+        gs.running = true;
+        lastTime = performance.now();
+        lastHostSend = 0;
+        lastGuestSend = 0;
+        requestAnimationFrame(loop);
+      }, 550);
+    }
+  };
+  tick();
+}
+
+// ---------- Input ----------
+const keys = {};
+window.addEventListener('keydown', (e) => {
+  keys[e.key.toLowerCase()] = true;
+  // Ignore OS-level key repeat for item keys
+  if (e.repeat) return;
+  // Support 1/2/3 via e.key, and Digit1/Digit2/Digit3 via e.code (handles IME / non-US layouts)
+  let slot = -1;
+  if (e.key === '1' || e.code === 'Digit1' || e.code === 'Numpad1') slot = 0;
+  else if (e.key === '2' || e.code === 'Digit2' || e.code === 'Numpad2') slot = 1;
+  else if (e.key === '3' || e.code === 'Digit3' || e.code === 'Numpad3') slot = 2;
+  if (slot >= 0) useItem(slot);
+});
+window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+function getMouseY(clientY) {
+  const rect = canvas.getBoundingClientRect();
+  return (clientY - rect.top) * (H / rect.height);
+}
+canvas.addEventListener('mousemove', (e) => {
+  if (!gs) return;
+  gs._mouseY = getMouseY(e.clientY);
+});
+canvas.addEventListener('mouseleave', () => { if (gs) gs._mouseY = null; });
+canvas.addEventListener('touchmove', (e) => {
+  if (!gs || !e.touches[0]) return;
+  gs._mouseY = getMouseY(e.touches[0].clientY);
+  e.preventDefault();
+}, { passive: false });
+
+document.querySelectorAll('.slot').forEach((s, i) => {
+  s.addEventListener('click', () => useItem(i));
+});
+
+// ---------- Items ----------
+function useItem(slot) {
+  if (!gs || !gs.running) return;
+  const meS = gs[mySide()];
+  const item = meS.items[slot];
+  if (!item) return;
+  meS.items[slot] = null;
+
+  if (mode === 'guest') {
+    // Guest must notify host. We include the item TYPE since inventories aren't synced.
+    sendNet({ type: 'useItem', item });
+    // Apply self-buff locally for snappy feedback (host will authoritatively sync effects next tick)
+    const def = ITEM_TYPES[item];
+    if (def.self) flashMessage(`${def.icon} ${def.name}!`, def.color);
+    else flashMessage(`${def.icon} ${def.name} SENT!`, def.color);
+  } else {
+    // Host (or solo): apply directly in host-coord 'left'
+    hostApplyItem('left', item);
+  }
+  updateHUD();
+}
+
+// Host-side: handle item use from guest. Guest sends item type directly.
+function hostHandleItemUse(item) {
+  if (!gs || !item) return;
+  hostApplyItem('right', item);
+}
+
+function hostApplyItem(side, item) {
+  // `side` is in HOST coordinates: 'left' = host player, 'right' = guest player
+  const def = ITEM_TYPES[item];
+  switch (item) {
+    case 'LONG':   gs[side].effects.long = 480; break; // 8s @60
+    case 'MAGNET': gs[side].effects.magnet = 300; break; // 5s
+    case 'POWER':  gs[side].effects.power = true; break;
+    case 'GHOST':  gs[side].effects.ghost = true; break;
+    case 'CURVE':  gs[side].effects.curve = 420; break; // 7s
+    case 'CHAOS':  gs[side].effects.chaos = 360; break; // 6s
+    case 'SLOW':   gs[side === 'left' ? 'right' : 'left'].effects.slow = 300; break;
+    case 'FLIP':   gs[side === 'left' ? 'right' : 'left'].effects.flip = 300; break;
+    case 'SHRINK': gs[side === 'left' ? 'right' : 'left'].effects.shrink = 360; break;
+    case 'FOG':    gs[side === 'left' ? 'right' : 'left'].effects.fog = 300; break;
+  }
+  // Determine which HOST-coord side corresponds to each real user
+  const localUserHostSide = myHostSide(); // host: 'left', guest: 'right', solo: 'left'
+  const otherUserHostSide = localUserHostSide === 'left' ? 'right' : 'left';
+
+  if (def.self) {
+    // Self-buff: the user on `side` activated it
+    if (side === localUserHostSide) {
+      flashMessage(`${def.icon} ${def.name}!`, def.color);
+    } else if (mode !== 'solo') {
+      sendNet({ type: 'flash', text: `${def.icon} ${def.name}!`, color: def.color });
+    }
+  } else {
+    // Sabotage: user on `side` sent it; victim is the other side
+    const victim = side === 'left' ? 'right' : 'left';
+    if (side === localUserHostSide) {
+      flashMessage(`${def.icon} ${def.name} SENT!`, def.color);
+    } else if (victim === localUserHostSide) {
+      flashMessage(`⚠ ${def.icon} ${def.name} INCOMING!`, def.color);
+    }
+    if (mode !== 'solo') {
+      const remoteIsVictim = (victim === otherUserHostSide);
+      sendNet({
+        type: 'flash',
+        text: remoteIsVictim ? `⚠ ${def.icon} ${def.name} INCOMING!` : `${def.icon} ${def.name} SENT!`,
+        color: def.color
+      });
+    }
+  }
+}
+
+function flashMessage(text, color) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  div.style.cssText = `
+    position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
+    font-family: var(--font-display); font-size: 26px; color: ${color};
+    text-shadow: 0 0 15px ${color}, 0 0 30px ${color};
+    z-index: 200; pointer-events: none; letter-spacing: 3px;
+    animation: flashMsg 1.3s ease-out forwards;
+  `;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 1300);
+}
+
+// keyframe for flashMsg
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+@keyframes flashMsg {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -60%) scale(0.9); }
+}`;
+document.head.appendChild(styleSheet);
+
+// ---------- Main Loop ----------
+let lastTime = 0, lastHostSend = 0, lastGuestSend = 0;
+function loop(t) {
+  if (!gs || !gs.running) return;
+  const dt = Math.min(32, t - lastTime) / (1000 / 60);
+  lastTime = t;
+
+  // Local input -> paddle target (both host & guest for their own paddle)
+  updateLocalInput(dt);
+
+  // Authoritative updates (host or solo)
+  if (mode !== 'guest') {
+    hostUpdate(dt);
+    // Broadcast state
+    if (mode === 'host' && t - lastHostSend > NET_SYNC_MS) {
+      lastHostSend = t;
+      sendNet({
+        type: 'state',
+        ball: { x: gs.ball.x, y: gs.ball.y, vx: gs.ball.vx, vy: gs.ball.vy, speed: gs.ball.speed },
+        left:  { y: gs.left.y,  h: gs.left.h,  effects: gs.left.effects },
+        right: { y: gs.right.y, h: gs.right.h, effects: gs.right.effects },
+        courtItems: gs.courtItems || []
+      });
+    }
+  }
+
+  // Guest sends its paddle target upstream. gs.left is the guest's own paddle.
+  if (mode === 'guest' && t - lastGuestSend > NET_SYNC_MS) {
+    lastGuestSend = t;
+    sendNet({ type: 'input', targetY: gs.left.targetY / H });
+  }
+
+  // Guest locally interpolates its own paddle toward targetY for responsiveness
+  if (mode === 'guest') {
+    const mySlow = gs.left.effects.slow > 0 ? 0.6 : 1;
+    gs.left.y += (gs.left.targetY - gs.left.y) * 0.4 * mySlow;
+  }
+
+  // Particle updates (all clients)
+  updateParticles(dt);
+
+  render();
+  updateHUD();
+  if (gs && gs.running) requestAnimationFrame(loop);
+}
+
+function updateLocalInput(dt) {
+  const me = gs[mySide()];
+  const flipped = me.effects.flip > 0 ? -1 : 1;
+  const slowMul = me.effects.slow > 0 ? 0.5 : 1;
+  const speed = BASE_PADDLE_SPEED * slowMul;
+
+  if (gs._mouseY !== null && gs._mouseY !== undefined) {
+    // Mouse-based: direct target (but flipped if FLIP active)
+    let target = gs._mouseY;
+    if (me.effects.flip > 0) target = H - target;
+    me.targetY = clamp(target - me.h / 2, 0, H - me.h);
+  } else {
+    if (keys['arrowup'] || keys['w']) me.targetY -= speed * flipped * dt;
+    if (keys['arrowdown'] || keys['s']) me.targetY += speed * flipped * dt;
+    me.targetY = clamp(me.targetY, 0, H - me.h);
+  }
+
+  // For host/solo, the paddle moves toward targetY (authoritative body)
+  if (mode !== 'guest') {
+    me.y += (me.targetY - me.y) * 0.4 * (me.effects.slow > 0 ? 0.6 : 1);
+  }
+
+  // In solo, also drive CPU (right side)
+  if (mode === 'solo') {
+    driveCPU(dt);
+  }
+}
+
+function driveCPU(dt) {
+  const cpu = gs.right;
+  const ball = gs.ball;
+  // Reaction parameters by difficulty
+  const params = {
+    easy:   { tracking: 0.07, noise: 40, speed: 5.5, itemChance: 0.002 },
+    normal: { tracking: 0.14, noise: 18, speed: 7.5, itemChance: 0.005 },
+    hard:   { tracking: 0.22, noise: 6,  speed: 10,  itemChance: 0.01 }
+  }[cpuDifficulty] || {};
+  // Predict where ball will intersect CPU side if moving right
+  let targetY = cpu.y + cpu.h / 2;
+  if (ball.vx > 0) {
+    // Predict
+    const dist = (W - PADDLE_MARGIN - PADDLE_W) - ball.x;
+    const timeToReach = dist / Math.max(0.1, ball.vx);
+    let predY = ball.y + ball.vy * timeToReach;
+    // Bounce prediction on top/bottom
+    const range = H - 2 * BALL_R;
+    predY = ((predY - BALL_R) % (2 * range) + 2 * range) % (2 * range);
+    if (predY > range) predY = 2 * range - predY;
+    predY += BALL_R;
+    targetY = predY + (Math.random() - 0.5) * params.noise;
+  } else {
+    targetY = H / 2 + (Math.random() - 0.5) * 100;
+  }
+  cpu.targetY = clamp(targetY - cpu.h / 2, 0, H - cpu.h);
+  cpu.y += clamp(cpu.targetY - cpu.y, -params.speed * dt, params.speed * dt);
+
+  // CPU uses items randomly
+  for (let i = 0; i < 3; i++) {
+    if (cpu.items[i] && Math.random() < params.itemChance * dt) {
+      const item = cpu.items[i];
+      cpu.items[i] = null;
+      hostApplyItem('right', item);
+      break;
+    }
+  }
+}
+
+// ---------- Host physics ----------
+function hostUpdate(dt) {
+  // Decrement effect timers
+  ['left','right'].forEach(side => {
+    const e = gs[side].effects;
+    ['long','magnet','curve','chaos','slow','flip','shrink','fog'].forEach(k => {
+      if (e[k] > 0) e[k] = Math.max(0, e[k] - dt);
+    });
+    // Paddle height target
+    let targetH = PADDLE_H_BASE;
+    if (e.long > 0) targetH *= 1.7;
+    if (e.shrink > 0) targetH *= 0.5;
+    gs[side].h += (targetH - gs[side].h) * 0.18;
+  });
+
+  // Host must move the OPPONENT's paddle (gs.right) toward their reported targetY.
+  // For solo mode, driveCPU already sets gs.right.y directly.
+  if (mode === 'host') {
+    const rightSlow = gs.right.effects.slow > 0 ? 0.6 : 1;
+    gs.right.targetY = clamp(gs.right.targetY, 0, H - gs.right.h);
+    gs.right.y += (gs.right.targetY - gs.right.y) * 0.4 * rightSlow;
+  }
+
+  if (gs.pointFreeze > 0) {
+    gs.pointFreeze -= dt;
+    return;
+  }
+
+  // Court item spawn — spawn frequently and allow multiple items on court at once
+  gs.lastItemSpawn += dt;
+  if (!gs.courtItems) gs.courtItems = [];
+  // Keep legacy single reference in sync for network broadcasts
+  const MAX_COURT_ITEMS = 2;
+  const SPAWN_INTERVAL = 180; // 3s @ 60fps
+  if (gs.courtItems.length < MAX_COURT_ITEMS && gs.lastItemSpawn > SPAWN_INTERVAL) {
+    gs.lastItemSpawn = 0;
+    gs.courtItems.push({
+      id: Math.random().toString(36).slice(2, 8),
+      x: rand(W * 0.2, W * 0.8),
+      y: rand(70, H - 70),
+      type: ITEM_KEYS[Math.floor(Math.random() * ITEM_KEYS.length)]
+    });
+  }
+
+  // Ball physics
+  const ball = gs.ball;
+
+  // Magnet: whichever side has magnet pulls ball slightly when on their half
+  ['left','right'].forEach(side => {
+    if (gs[side].effects.magnet > 0) {
+      const onThisHalf = (side === 'left' && ball.x < W/2) || (side === 'right' && ball.x > W/2);
+      const approaching = (side === 'left' && ball.vx < 0) || (side === 'right' && ball.vx > 0);
+      if (onThisHalf && approaching) {
+        const paddleCenterY = gs[side].y + gs[side].h / 2;
+        const dy = paddleCenterY - ball.y;
+        ball.vy += (dy > 0 ? 1 : -1) * 0.08 * dt;
+      }
+    }
+  });
+
+  ball.x += ball.vx * dt;
+  ball.y += ball.vy * dt;
+
+  // Top/bottom walls
+  if (ball.y < BALL_R) { ball.y = BALL_R; ball.vy = -ball.vy; }
+  if (ball.y > H - BALL_R) { ball.y = H - BALL_R; ball.vy = -ball.vy; }
+
+  // Paddle collisions — account for zigzag bulge on middle third of paddle.
+  // The middle section sticks inward (toward ball) by ZIG_BULGE on default paddles.
+  const leftX = PADDLE_MARGIN;
+  const rightX = W - PADDLE_MARGIN - PADDLE_W;
+
+  // How much the paddle's middle extends toward center-court, based on shape.
+  function paddleBulge(side) {
+    const shape = getPaddleShape(side);
+    if (shape === 'zigzag') return ZIG_BULGE;
+    if (shape === 'curve') return 0; // curve: concave, effectively no bulge
+    if (shape === 'chaos') return ZIG_BULGE * (0.6 + Math.random() * 0.8); // jittery
+    return 0;
+  }
+
+  // Check if ball y is in middle third of paddle
+  function inMiddle(side) {
+    const p = gs[side];
+    return (ball.y + BALL_R >= p.y + p.h / 3) && (ball.y - BALL_R <= p.y + (2 * p.h) / 3);
+  }
+
+  // Left paddle collision
+  const leftBulge = inMiddle('left') ? paddleBulge('left') : 0;
+  if (ball.vx < 0 &&
+      ball.x - BALL_R <= leftX + PADDLE_W + leftBulge &&
+      ball.x - BALL_R >= leftX - 6 &&
+      ball.y + BALL_R >= gs.left.y &&
+      ball.y - BALL_R <= gs.left.y + gs.left.h) {
+    handlePaddleHit('left');
+  }
+  // Right paddle collision
+  const rightBulge = inMiddle('right') ? paddleBulge('right') : 0;
+  if (ball.vx > 0 &&
+      ball.x + BALL_R >= rightX - rightBulge &&
+      ball.x + BALL_R <= rightX + PADDLE_W + 6 &&
+      ball.y + BALL_R >= gs.right.y &&
+      ball.y - BALL_R <= gs.right.y + gs.right.h) {
+    if (gs.left.effects.ghost) {
+      // Left player's GHOST: ball phases through right paddle
+      gs.left.effects.ghost = false;
+      spawnParticles(ball.x, ball.y, '#39ff14', 16);
+    } else {
+      handlePaddleHit('right');
+    }
+  }
+  if (ball.vx < 0 && ball.x - BALL_R <= leftX &&
+      (ball.y + BALL_R < gs.left.y || ball.y - BALL_R > gs.left.y + gs.left.h)) {
+    // GHOST for right player
+    if (gs.right.effects.ghost) {
+      gs.right.effects.ghost = false;
+      // does nothing special, ball continues; handled generically
+    }
+  }
+
+  // Court item pickup by ball (check all items on court)
+  if (gs.courtItems && gs.courtItems.length) {
+    for (let i = gs.courtItems.length - 1; i >= 0; i--) {
+      const it = gs.courtItems[i];
+      const dx = ball.x - it.x;
+      const dy = ball.y - it.y;
+      if (Math.hypot(dx, dy) < BALL_R + 16) {
+        // Use explicitly tracked last hitter; fall back to direction-based guess
+        const lastHitter = gs.lastHitter || (ball.vx > 0 ? 'left' : 'right');
+        if (lastHitter === 'left') {
+          addItemToInventory(gs.left.items, it.type);
+        } else {
+          if (mode === 'host') sendNet({ type: 'pickup', item: it.type });
+          else if (mode === 'solo') addItemToInventory(gs.right.items, it.type);
+        }
+        spawnParticles(it.x, it.y, ITEM_TYPES[it.type].color, 18);
+        gs.courtItems.splice(i, 1);
+      }
+    }
+  }
+
+  // Scoring
+  if (ball.x < -BALL_R) {
+    scorePoint('right');
+  } else if (ball.x > W + BALL_R) {
+    scorePoint('left');
+  }
+}
+
+// Returns which paddle shape is active for a given side.
+// Priority: CHAOS > CURVE > default ZIGZAG
+function getPaddleShape(side) {
+  const e = gs[side].effects;
+  if (e.chaos > 0) return 'chaos';
+  if (e.curve > 0) return 'curve';
+  return 'zigzag';
+}
+
+// Compute the bounce angle based on hitPos (-0.5..0.5) and paddle shape.
+// Returns angle in radians, where 0 = straight back, ±pi/2 = vertical.
+function calcBounceAngle(hitPos, shape) {
+  // Zigzag (default): middle third is a "sweet spot" with amplified angles.
+  // Top/bottom sections behave like flat paddle; middle section gives extra curve.
+  if (shape === 'zigzag') {
+    // hitPos in [-0.5, -1/6]: top flat  → normal angle
+    // hitPos in [-1/6,  1/6]: middle bulge → amplified (more horizontal at center,
+    //                                         but steeper near edges of the bulge)
+    // hitPos in [ 1/6,  0.5]: bottom flat → normal angle
+    if (hitPos < -1/6) {
+      // Top flat segment: map (-0.5..-1/6) to (-0.4..-0.13) of full angle
+      return hitPos * (Math.PI * 0.4);
+    } else if (hitPos > 1/6) {
+      return hitPos * (Math.PI * 0.4);
+    } else {
+      // Middle "sweet spot": amplified response near the bulge edges,
+      // straight return at dead-center.
+      // Linearly map [-1/6, 1/6] to [-0.35, 0.35] of pi (steeper slope).
+      return (hitPos * 6) * (Math.PI * 0.35);
+    }
+  }
+  // Curve: smooth arc — modest center, dramatic edges (quadratic boost)
+  if (shape === 'curve') {
+    const sign = Math.sign(hitPos);
+    const mag = Math.abs(hitPos) * 2; // 0..1
+    // Cubic response: subtle near center, sharp at edges
+    const eased = Math.pow(mag, 1.4);
+    return sign * eased * (Math.PI * 0.46);
+  }
+  // Chaos: random jitter added to base angle
+  if (shape === 'chaos') {
+    const base = hitPos * (Math.PI * 0.4);
+    const jitter = (Math.random() - 0.5) * (Math.PI * 0.55);
+    return base + jitter;
+  }
+  return hitPos * (Math.PI * 0.4);
+}
+
+function handlePaddleHit(side) {
+  const ball = gs.ball;
+  const paddle = gs[side];
+  const px = side === 'left' ? (PADDLE_MARGIN + PADDLE_W) : (W - PADDLE_MARGIN - PADDLE_W);
+  ball.x = side === 'left' ? px + BALL_R : px - BALL_R;
+  // Track who last hit the ball — used for item pickup attribution
+  gs.lastHitter = side;
+  const hitPos = clamp((ball.y - paddle.y) / paddle.h - 0.5, -0.5, 0.5);
+  const shape = getPaddleShape(side);
+  let angle = calcBounceAngle(hitPos, shape);
+  // Clamp angle to avoid near-vertical balls that get stuck bouncing top/bottom
+  angle = clamp(angle, -Math.PI * 0.48, Math.PI * 0.48);
+  // POWER boosts next hit speed
+  let sp = ball.speed * 1.04;
+  if (paddle.effects.power) {
+    sp = Math.min(MAX_BALL_SPEED, sp * 1.5);
+    paddle.effects.power = false;
+    spawnParticles(ball.x, ball.y, '#ff7b00', 24);
+  }
+  // Sweet spot bonus: hitting the bulge center at zigzag gives a small speed boost
+  if (shape === 'zigzag' && Math.abs(hitPos) < 1/6) {
+    sp = Math.min(MAX_BALL_SPEED, sp * 1.05);
+    spawnParticles(ball.x, ball.y, '#f9f871', 6);
+  }
+  sp = Math.min(MAX_BALL_SPEED, sp);
+  ball.speed = sp;
+  const dir = side === 'left' ? 1 : -1;
+  ball.vx = Math.cos(angle) * sp * dir;
+  ball.vy = Math.sin(angle) * sp;
+  // Extra visual feedback per shape
+  const hitColor = shape === 'chaos' ? '#ff006e'
+                 : shape === 'curve' ? '#c77dff'
+                 : (side === 'left' ? '#05d9e8' : '#ff2a6d');
+  spawnParticles(ball.x, ball.y, hitColor, shape === 'chaos' ? 18 : 10);
+}
+
+function scorePoint(scorer) {
+  gs[scorer].score++;
+  spawnParticles(gs.ball.x, gs.ball.y, '#ff2a6d', 30);
+  if (mode === 'host') {
+    sendNet({ type: 'point', scorer, score: { left: gs.left.score, right: gs.right.score } });
+  }
+  showPointFlash(scorer);
+
+  // Check win
+  if (gs[scorer].score >= WIN_SCORE) {
+    if (mode === 'host') sendNet({ type: 'gameOver', winner: scorer });
+    const iWon = scorer === mySide();
+    endGame(iWon ? 'win' : 'lose');
+    return;
+  }
+
+  // Reset ball
+  gs.pointFreeze = 60; // 1s
+  gs.lastHitter = null; // no one has hit the new ball yet
+  const dir = scorer === 'left' ? -1 : 1; // serve toward the loser
+  gs.ball = {
+    x: W/2, y: H/2,
+    vx: BASE_BALL_SPEED * dir,
+    vy: rand(-3, 3),
+    speed: BASE_BALL_SPEED
+  };
+}
+
+function showPointFlash(scorer) {
+  const iScored = scorer === mySide();
+  const color = iScored ? '#39ff14' : '#ff2a6d';
+  const text = iScored ? 'POINT!' : 'FOE SCORES';
+  const div = document.createElement('div');
+  div.textContent = text;
+  div.style.cssText = `
+    position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    font-family: var(--font-display); font-size: 46px; color: ${color};
+    text-shadow: 0 0 20px ${color}, 0 0 40px ${color};
+    z-index: 200; pointer-events: none; letter-spacing: 5px;
+    animation: flashMsg 1.2s ease-out forwards;
+  `;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 1200);
+}
+
+// ---------- Particles ----------
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = Math.random() * 4 + 1;
+    gs.particles.push({
+      x, y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s,
+      life: 40, maxLife: 40, color
+    });
+  }
+}
+function updateParticles(dt) {
+  for (let i = gs.particles.length - 1; i >= 0; i--) {
+    const p = gs.particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= 0.96;
+    p.vy *= 0.96;
+    p.life -= dt;
+    if (p.life <= 0) gs.particles.splice(i, 1);
+  }
+}
+
+// ---------- Render ----------
+function render() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+
+  // Court decorations: glowing center line
+  ctx.strokeStyle = 'rgba(5, 217, 232, 0.35)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([14, 14]);
+  ctx.shadowColor = '#05d9e8';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.moveTo(W/2, 10);
+  ctx.lineTo(W/2, H-10);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
+
+  // Center circle
+  ctx.strokeStyle = 'rgba(211, 0, 197, 0.25)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(W/2, H/2, 70, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Frame glow
+  ctx.strokeStyle = 'rgba(5, 217, 232, 0.18)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(4, 4, W-8, H-8);
+
+  // My & foe perspective: we always render so mySide is LEFT visually
+  const meSideKey = mySide();
+  const leftData  = meSideKey === 'left' ? gs.left  : gs.right;
+  const rightData = meSideKey === 'left' ? gs.right : gs.left;
+  // But actual coords used by state are already consistent (for guest we flipped them in applyHostState),
+  // so we can render gs.left at left, gs.right at right.
+
+  // Particles
+  gs.particles.forEach(p => {
+    const alpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 8;
+    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+  });
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+
+  // Court items
+  if (gs.courtItems && gs.courtItems.length) {
+    const pulse = 1 + Math.sin(performance.now() * 0.006) * 0.15;
+    gs.courtItems.forEach(it => {
+      const def = ITEM_TYPES[it.type];
+      ctx.fillStyle = def.color;
+      ctx.shadowColor = def.color;
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.arc(it.x, it.y, 14 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.font = '18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000';
+      ctx.fillText(def.icon, it.x, it.y + 1);
+    });
+  }
+
+  // Paddles
+  drawPaddle('left', gs.left, meSideKey === 'left' ? '#05d9e8' : '#ff2a6d');
+  drawPaddle('right', gs.right, meSideKey === 'right' ? '#05d9e8' : '#ff2a6d');
+
+  // Ball (with trail)
+  drawBall();
+
+  // Effect badges (for my side)
+  const me = gs[meSideKey];
+  const badges = [];
+  if (me.effects.long > 0)   badges.push({ t: 'LONG', c: '#f9f871' });
+  if (me.effects.magnet > 0) badges.push({ t: 'MAGNET', c: '#05d9e8' });
+  if (me.effects.power)      badges.push({ t: 'POWER', c: '#ff7b00' });
+  if (me.effects.ghost)      badges.push({ t: 'GHOST', c: '#39ff14' });
+  if (me.effects.curve > 0)  badges.push({ t: 'CURVE', c: '#c77dff' });
+  if (me.effects.chaos > 0)  badges.push({ t: 'CHAOS', c: '#ff006e' });
+  if (me.effects.slow > 0)   badges.push({ t: 'SLOW!', c: '#d300c5' });
+  if (me.effects.flip > 0)   badges.push({ t: 'FLIP!', c: '#ff2a6d' });
+  if (me.effects.shrink > 0) badges.push({ t: 'SHRINK!', c: '#ff9500' });
+  ctx.font = 'bold 13px monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  badges.forEach((b, i) => {
+    ctx.fillStyle = b.c;
+    ctx.shadowColor = b.c;
+    ctx.shadowBlur = 10;
+    ctx.fillText(b.t, 14, 14 + i * 16);
+  });
+  ctx.shadowBlur = 0;
+
+  // FOG
+  if (me.effects.fog > 0) {
+    ctx.fillStyle = 'rgba(20, 20, 40, 0.55)';
+    ctx.fillRect(0, 0, W, H);
+    for (let i = 0; i < 80; i++) {
+      ctx.fillStyle = `rgba(200,200,220,${Math.random() * 0.22})`;
+      ctx.fillRect(Math.random() * W, Math.random() * H, 40, 40);
+    }
+  }
+}
+
+function drawPaddle(side, data, color) {
+  const x = side === 'left' ? PADDLE_MARGIN : W - PADDLE_MARGIN - PADDLE_W;
+  const shape = (gs === null) ? 'zigzag' : getPaddleShape(side);
+  // Determine the inward-facing x (where ball hits) per y-section.
+  // For left paddle: inward face is the right edge (x + PADDLE_W), bulge extends further right.
+  // For right paddle: inward face is the left edge (x), bulge extends further left (negative offset).
+  const inwardSign = side === 'left' ? 1 : -1;
+  const faceX = side === 'left' ? (x + PADDLE_W) : x;
+
+  // Build the inward edge points (y, xOffset) from top to bottom.
+  const segments = 16; // subdivisions for smooth shapes
+  const points = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments; // 0..1
+    const py = data.y + t * data.h;
+    let offset = 0;
+    if (shape === 'zigzag') {
+      // Middle third bulges out. Outside middle: flat.
+      if (t >= 1/3 && t <= 2/3) {
+        const localT = (t - 1/3) * 3; // 0..1 within middle
+        // Triangular bump (tent shape)
+        offset = ZIG_BULGE * (1 - Math.abs(localT - 0.5) * 2);
+      }
+    } else if (shape === 'curve') {
+      // Concave: edges stick out, middle is recessed (opposite of zigzag)
+      // Creates a dish shape that funnels angle
+      const dt = t - 0.5; // -0.5..0.5
+      offset = -ZIG_BULGE * 0.8 * (1 - Math.pow(Math.abs(dt) * 2, 1.5));
+      // Result: slightly concave ("curve" ball-catching arc)
+    } else if (shape === 'chaos') {
+      // Irregular jitter, but stable within a single render frame via deterministic seed from y
+      const seed = Math.floor(py * 0.3 + performance.now() * 0.002);
+      const rand01 = Math.sin(seed * 12.9898) * 43758.5453;
+      const jitter = (rand01 - Math.floor(rand01)) - 0.5;
+      offset = jitter * ZIG_BULGE * 2.2;
+    }
+    points.push({ y: py, x: faceX + offset * inwardSign });
+  }
+
+  // Fill the paddle: polygon from outer edge to inward edge
+  ctx.beginPath();
+  if (side === 'left') {
+    ctx.moveTo(x, data.y); // top-left
+    points.forEach(p => ctx.lineTo(p.x, p.y)); // right (inward) edge top→bottom
+    ctx.lineTo(x, data.y + data.h); // bottom-left
+  } else {
+    ctx.moveTo(x + PADDLE_W, data.y); // top-right
+    points.forEach(p => ctx.lineTo(p.x, p.y)); // left (inward) edge top→bottom
+    ctx.lineTo(x + PADDLE_W, data.y + data.h); // bottom-right
+  }
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(x, 0, x + PADDLE_W + ZIG_BULGE * inwardSign, 0);
+  grad.addColorStop(0, '#fff');
+  grad.addColorStop(0.5, color);
+  grad.addColorStop(1, color);
+  ctx.fillStyle = grad;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 22;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Cap highlights
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.fillRect(x, data.y, PADDLE_W, 3);
+  ctx.fillRect(x, data.y + data.h - 3, PADDLE_W, 3);
+
+  // Sweet-spot glow (zigzag): highlight the middle bulge
+  if (shape === 'zigzag') {
+    const midY = data.y + data.h / 2;
+    const midFaceX = faceX + ZIG_BULGE * inwardSign;
+    ctx.fillStyle = `rgba(249, 248, 113, ${0.3 + Math.sin(performance.now() * 0.005) * 0.15})`;
+    ctx.shadowColor = '#f9f871';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(midFaceX, midY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // Curve effect glow (purple outer ring)
+  if (data.effects.curve > 0) {
+    ctx.strokeStyle = '#c77dff';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#c77dff';
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    if (side === 'left') {
+      ctx.moveTo(x - 3, data.y - 3);
+      points.forEach(p => ctx.lineTo(p.x + 3, p.y));
+      ctx.lineTo(x - 3, data.y + data.h + 3);
+    } else {
+      ctx.moveTo(x + PADDLE_W + 3, data.y - 3);
+      points.forEach(p => ctx.lineTo(p.x - 3, p.y));
+      ctx.lineTo(x + PADDLE_W + 3, data.y + data.h + 3);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // Chaos effect glow (pink flicker)
+  if (data.effects.chaos > 0) {
+    ctx.strokeStyle = `rgba(255, 0, 110, ${0.6 + Math.random() * 0.4})`;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#ff006e';
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    if (side === 'left') {
+      ctx.moveTo(x - 2, data.y - 2);
+      points.forEach(p => ctx.lineTo(p.x + 2, p.y));
+      ctx.lineTo(x - 2, data.y + data.h + 2);
+    } else {
+      ctx.moveTo(x + PADDLE_W + 2, data.y - 2);
+      points.forEach(p => ctx.lineTo(p.x - 2, p.y));
+      ctx.lineTo(x + PADDLE_W + 2, data.y + data.h + 2);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // Ghost ring
+  if (data.effects.ghost) {
+    ctx.strokeStyle = '#39ff14';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#39ff14';
+    ctx.shadowBlur = 15;
+    ctx.strokeRect(x - 4, data.y - 4, PADDLE_W + 8, data.h + 8);
+    ctx.shadowBlur = 0;
+  }
+  // Magnet aura
+  if (data.effects.magnet > 0) {
+    ctx.strokeStyle = 'rgba(5, 217, 232, 0.4)';
+    ctx.lineWidth = 1;
+    for (let r = 20; r < 80; r += 15) {
+      ctx.beginPath();
+      ctx.arc(x + PADDLE_W/2, data.y + data.h/2, r + Math.sin(performance.now()*0.005 + r)*3, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }
+  // Power charge
+  if (data.effects.power) {
+    const t = performance.now() * 0.01;
+    ctx.fillStyle = `rgba(255, 123, 0, ${0.3 + Math.sin(t)*0.2})`;
+    ctx.fillRect(x - 3, data.y - 3, PADDLE_W + 6, data.h + 6);
+  }
+}
+
+function drawBall() {
+  const b = gs.ball;
+  // Trail
+  for (let i = 1; i <= 4; i++) {
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.08 * (5 - i)})`;
+    ctx.beginPath();
+    ctx.arc(b.x - b.vx * i * 0.6, b.y - b.vy * i * 0.6, BALL_R * (1 - i * 0.15), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Main ball — color indicates active effects
+  const powered = gs.left.effects.power || gs.right.effects.power;
+  // Ghost visually applies when ball is heading TOWARD the foe of the ghost-holder
+  const ghostActive = (gs.left.effects.ghost && b.vx > 0) ||
+                      (gs.right.effects.ghost && b.vx < 0);
+  let color = '#ffffff';
+  if (ghostActive) color = '#39ff14';
+  else if (powered) color = '#ff7b00';
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = ghostActive ? 35 : 25;
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, BALL_R, 0, Math.PI * 2);
+  ctx.fill();
+  // Extra ghost ring pulsing around ball
+  if (ghostActive) {
+    ctx.strokeStyle = 'rgba(57, 255, 20, 0.6)';
+    ctx.lineWidth = 2;
+    const r = BALL_R + 4 + Math.sin(performance.now() * 0.015) * 2;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+}
+
+// ---------- End ----------
+// Rematch state tracks whether each side has requested a rematch in multiplayer.
+let rematchState = null; // { me: bool, foe: bool }
+
+function endGame(result) {
+  if (!gs) return;
+  gs.running = false;
+  let title, sub, cls;
+  if (result === 'win') { title = 'VICTORY'; sub = 'Foe defeated. Court is yours.'; cls = 'win'; }
+  else if (result === 'lose') { title = 'DEFEAT'; sub = 'The foe holds the arena.'; cls = 'lose'; }
+  else { title = 'DISCONNECTED'; sub = 'Opponent left the arena.'; cls = 'lose'; }
+  const me = gs[mySide()], foe = gs[foeSide()];
+  rematchState = { me: false, foe: false };
+  renderEndOverlay(title, sub, cls, me.score, foe.score, result);
+}
+
+function renderEndOverlay(title, sub, cls, myScore, foeScore, result) {
+  const canRematch = result !== 'disconnect';
+  const rematchBtn = canRematch
+    ? `<button class="menu-btn ${cls === 'win' ? 'green' : 'yellow'}" id="rematchBtn">↻ REMATCH</button>`
+    : '';
+  showOverlay(`
+    <div class="result-card ${cls === 'lose' ? 'lose' : ''}">
+      <div class="result-title ${cls}">${title}</div>
+      <div class="result-sub">${sub}</div>
+      <div class="result-sub" style="font-family:var(--font-display);font-size:18px;color:var(--neon-yellow);letter-spacing:4px;">
+        ${myScore} : ${foeScore}
+      </div>
+      <div class="result-actions">
+        ${rematchBtn}
+        <button class="menu-btn pink" onclick="returnToMenu()">← BACK TO MENU</button>
+      </div>
+      <div class="rematch-status" id="rematchStatus"></div>
+    </div>
+  `);
+  const btn = document.getElementById('rematchBtn');
+  if (btn) btn.onclick = requestRematch;
+}
+
+function setRematchStatus(text) {
+  const el = document.getElementById('rematchStatus');
+  if (el) el.textContent = text;
+}
+
+function requestRematch() {
+  if (!rematchState) return;
+  if (mode === 'solo') {
+    // Solo: instant restart
+    startSoloRematch();
+    return;
+  }
+  // Multiplayer: mark self ready and notify foe
+  if (rematchState.me) return; // already requested
+  rematchState.me = true;
+  sendNet({ type: 'rematchRequest' });
+  const btn = document.getElementById('rematchBtn');
+  if (btn) {
+    btn.textContent = '✓ WAITING FOR FOE';
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+  }
+  if (rematchState.foe) {
+    // Foe already requested earlier; both agreed → start
+    beginRematch();
+  } else {
+    setRematchStatus('Waiting for opponent to accept...');
+  }
+}
+
+function beginRematch() {
+  rematchState = null;
+  hideOverlay();
+  // Reset game state (same mode, preserve network)
+  if (mode === 'host') {
+    // Host notifies guest AND starts locally
+    sendNet({ type: 'rematchStart' });
+    startMultiplayer();
+  } else if (mode === 'guest') {
+    startMultiplayer();
+  }
+}
+
+function startSoloRematch() {
+  rematchState = null;
+  hideOverlay();
+  startSolo();
+}
+
+function returnToMenu() {
+  hideOverlay();
+  cleanupNet();
+  gs = null;
+  mode = null;
+  rematchState = null;
+  showScreen('menu');
+  showMenuCard('menuMain');
+}
+window.returnToMenu = returnToMenu;
+</script>
+</body>
+</html>

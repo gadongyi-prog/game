@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>온라인 그림 맞추기 (1:1:1:1)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #F7F6F2;
+    color: #2C2C2A;
+    line-height: 1.6;
+  }
+  h1 { font-size: 22px; font-weight: 500; margin: 0 0 8px; }
+  h2 { font-size: 18px; font-weight: 500; margin: 0 0 12px; }
+  p { margin: 0 0 8px; font-size: 14px; }
+  .muted { color: #5F5E5A; font-size: 13px; }
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 0.5px solid rgba(0,0,0,0.1);
+  }
+  .surface {
+    background: #EEECE4;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 0.5px solid rgba(0,0,0,0.2);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background: white;
+    margin-bottom: 8px;
+  }
+  button {
+    padding: 10px 16px;
+    border: 0.5px solid rgba(0,0,0,0.3);
+    border-radius: 8px;
+    background: white;
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover { background: #F0EFE8; }
+  button:active { transform: scale(0.98); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary {
+    background: #2C2C2A;
+    color: white;
+    border: none;
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: #444441; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .row-code {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    border: 0.5px solid rgba(0,0,0,0.15);
+  }
+  .code-display {
+    flex: 1;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    word-break: break-all;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    border-radius: 8px;
+    cursor: crosshair;
+    touch-action: none;
+    background: white;
+    border: 0.5px solid rgba(0,0,0,0.15);
+  }
+  .color-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .color-btn.active { border-color: #2C2C2A; }
+  .tool-row { display: flex; gap: 8px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+  .hidden { display: none !important; }
+  .player-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    border: 0.5px solid rgba(0,0,0,0.1);
+    margin: 0 6px 6px 0;
+  }
+  .player-chip.drawing {
+    background: #FAEEDA;
+    border-color: #EF9F27;
+    color: #633806;
+  }
+  .player-chip.me {
+    background: #E6F1FB;
+    border-color: #378ADD;
+    color: #0C447C;
+  }
+  .score-badge {
+    background: #2C2C2A;
+    color: white;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  #chat-box {
+    background: white;
+    border: 0.5px solid rgba(0,0,0,0.15);
+    border-radius: 8px;
+    height: 200px;
+    overflow-y: auto;
+    padding: 12px;
+    font-size: 14px;
+  }
+  .chat-msg { margin: 0 0 6px; }
+  .chat-msg .sender { font-weight: 500; margin-right: 6px; }
+  .chat-msg.system { color: #5F5E5A; font-style: italic; font-size: 13px; }
+  .chat-msg.correct { color: #27500A; font-weight: 500; }
+  .chat-msg.close { color: #854F0B; }
+  .word-display {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: 4px;
+    text-align: center;
+    padding: 12px;
+    background: #E6F1FB;
+    border-radius: 8px;
+    color: #0C447C;
+    margin-bottom: 12px;
+  }
+  .timer-val { font-size: 24px; font-weight: 500; margin: 0; }
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #EEECE4;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 시작 화면: 방 만들기 / 참가하기 선택 -->
+<div id="start-screen">
+  <h1>🎨 온라인 그림 맞추기</h1>
+  <p class="muted">2~8명이 함께 즐기는 실시간 그림 맞추기 게임입니다. 한 명이 방을 만들고 코드를 공유하면, 나머지 참가자가 그 코드로 접속합니다.</p>
+  
+  <div class="card" style="margin-top: 16px;">
+    <h2>닉네임 입력</h2>
+    <input type="text" id="nickname" placeholder="닉네임" maxlength="10" />
+  </div>
+
+  <div class="grid-2">
+    <button class="btn-primary" onclick="createRoom()">🏠 방 만들기</button>
+    <div class="card" style="margin: 0;">
+      <input type="text" id="join-code" placeholder="방 코드 입력" />
+      <button class="btn-primary" onclick="joinRoom()" style="padding: 10px;">참가하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 대기실: 방장이 만든 직후 또는 참가자들이 모이는 화면 -->
+<div id="lobby-screen" class="hidden">
+  <h1>🏠 대기실</h1>
+  
+  <div id="host-section" class="card hidden">
+    <p class="muted">이 방 코드를 다른 플레이어 3명에게 공유하세요:</p>
+    <div class="row-code">
+      <div class="code-display" id="room-code-display">-</div>
+      <button onclick="copyCode()">복사</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>참가자 <span id="player-count" style="color: #5F5E5A; font-size: 14px; font-weight: 400;">(1/8)</span></h2>
+    <div id="lobby-players"></div>
+  </div>
+
+  <!-- 방장용 게임 설정 -->
+  <div id="host-settings" class="card hidden">
+    <h2>게임 설정 (방장)</h2>
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+      <label style="font-size: 14px; color: #5F5E5A; min-width: 120px;">1인당 그릴 횟수</label>
+      <input type="range" min="1" max="6" value="4" step="1" id="rounds-per-player" style="flex: 1;" />
+      <span style="font-weight: 500; min-width: 32px; text-align: right;" id="rounds-per-player-out">4번</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+      <label style="font-size: 14px; color: #5F5E5A; min-width: 120px;">라운드 제한 시간</label>
+      <input type="range" min="30" max="180" value="120" step="15" id="round-time" style="flex: 1;" />
+      <span style="font-weight: 500; min-width: 48px; text-align: right;" id="round-time-out">2:00</span>
+    </div>
+    <p class="muted" style="margin: 8px 0 0; font-size: 12px;">예상 총 라운드: <span id="total-rounds-preview">-</span></p>
+  </div>
+
+  <div id="host-start-btn" class="hidden">
+    <button class="btn-primary" id="start-game-btn" onclick="startGame()" disabled>최소 2명이 모이면 시작할 수 있어요</button>
+  </div>
+  <p id="waiting-msg" class="muted hidden" style="text-align: center;">방장이 게임을 시작할 때까지 기다려주세요...</p>
+</div>
+
+<!-- 게임 화면 -->
+<div id="game-screen" class="hidden">
+  <div class="status-bar">
+    <div>
+      <span class="muted">라운드</span>
+      <strong id="round-num">1</strong>
+      <span class="muted"> / </span>
+      <strong id="round-total">8</strong>
+    </div>
+    <div>
+      <span class="muted">그리는 사람: </span>
+      <strong id="drawer-name">-</strong>
+    </div>
+    <div>
+      <span class="muted">⏱ </span>
+      <strong class="timer-val" id="timer">60</strong>
+    </div>
+  </div>
+
+  <div id="players-status" style="margin-bottom: 12px;"></div>
+
+  <div id="word-reveal" class="word-display">_ _ _</div>
+
+  <canvas id="canvas" width="640" height="400"></canvas>
+
+  <!-- 그리는 사람만 보이는 툴바 -->
+  <div class="tool-row hidden" id="drawing-tools">
+    <button class="color-btn active" data-color="#2C2C2A" style="background: #2C2C2A;"></button>
+    <button class="color-btn" data-color="#E24B4A" style="background: #E24B4A;"></button>
+    <button class="color-btn" data-color="#378ADD" style="background: #378ADD;"></button>
+    <button class="color-btn" data-color="#639922" style="background: #639922;"></button>
+    <button class="color-btn" data-color="#EF9F27" style="background: #EF9F27;"></button>
+    <button class="color-btn" data-color="#7F77DD" style="background: #7F77DD;"></button>
+    <input type="range" min="2" max="20" value="4" id="brush-size" style="min-width: 100px;" />
+    <button onclick="clearCanvasAction()">지우기</button>
+    <button onclick="passRound()" style="margin-left: auto; color: #A32D2D; border-color: #A32D2D;">⏭ 패스</button>
+  </div>
+
+  <!-- 채팅/정답 입력 -->
+  <div style="margin-top: 12px;">
+    <div id="chat-box"></div>
+    <div style="display: flex; gap: 8px; margin-top: 8px;">
+      <input type="text" id="guess-input" placeholder="정답 또는 채팅 입력..." style="margin: 0;" />
+      <button onclick="sendGuess()">전송</button>
+    </div>
+  </div>
+  
+  <!-- 방장용 게임 재시작 -->
+  <div id="host-controls" class="hidden" style="margin-top: 12px; text-align: right;">
+    <button onclick="restartGame()" style="font-size: 13px; color: #5F5E5A;">🔄 게임 재시작 (방장)</button>
+  </div>
+</div>
+
+<!-- 최종 결과 -->
+<div id="end-screen" class="hidden" style="text-align: center; padding: 40px 20px;">
+  <p class="muted">🏆 최종 결과</p>
+  <h1 id="winner-name" style="font-size: 28px; margin: 8px 0 24px;">-</h1>
+  <div id="final-scores" class="card" style="text-align: left; max-width: 360px; margin: 0 auto 24px;"></div>
+  <div id="end-host-controls" class="hidden">
+    <button class="btn-primary" style="max-width: 240px; margin: 0 auto 8px;" onclick="restartGame()">🔄 다시 플레이 (같은 멤버)</button>
+  </div>
+  <p id="end-waiting-msg" class="muted hidden" style="margin-bottom: 8px;">방장이 재시작하기를 기다리는 중...</p>
+  <button onclick="location.reload()" style="font-size: 13px; color: #5F5E5A;">처음으로 (연결 끊김)</button>
+</div>
+
+<script>
+// ========== 단어장 ==========
+const WORDS = [
+  // === ㄱ 초성 ===
+  '가게','가격','가곡','감기','가구','경고','고개','고기','공간','공격','공구','공군','곶감','과거',
+  '광고','관광','국기','군가','군견','군기','국군','궁궐','금고','금관','금괴','기계','김구',
+  '가나','고니','과녁','그네','그늘','금니',
+  '가드','각도','감독','감동','검도','골대','광대','구두','계단','기도','기둥',
+  '가락','가로','가루','거름','거리','걸레','계란','고래','고려','고리','공룡','구름','그램','그릇','그림','급류','기름','기린',
+  '가마','가면','가명','가문','가뭄','각목','개미','거미','건물','경마','경매','고막','고모','고무','골무','괴물','그물',
+  '가발','가방','간부','갈비','감방','강변','경보','계백','고백','곤봉','구보','군밤','군번','군복','굴비','권법','김밥',
+  '가사','가설','가수','가스','가시','간수','강사','객실','걸상','검사','검색','고성','고수','곡선','곡식','곱셈','과식','관상','교사','교수','국수','귀신','급소','기사','기생','깁스',
+  '가요','가운','가위','가을','감옥','갑옷','강인','개인','거울','걸인','겉옷','게임','겨울','공연','공원','공유','공이','과열','과음','과일','관우','광야','구유','군인','근육','기아','기원','골인',
+  '가장','가재','가족','가죽','가지','간장','감자','감정','거지','겨자','공자','공장','공주','과자','과장','관절','귀족','기자','김장',
+  '가축','가출','갈치','감초','건축','경차','경찰','경첩','곤충','곱창','기차','기침','김치','간첩',
+  '골킥','감투','강타','교탁','구토','권투','기타',
+  '가풍','간판','거품','경품','골프','구피',
+  '가훈','각하','결혼','고함','고흐','공항','공해','과학','교환','교회','교훈','국화','군함','군화','급훈',
+  '굴뚝','글씨','가짜',
+  
+  // === ㄴ 초성 ===
+  '나귀','날개','농구','눈길','능금','누나','늑대','나래','낙뢰','노래','노루',
+  '나무','나물','눈물','나비','낙법','냄비','놀부','농부','나사','낙서','낚시','냄새','뉴스',
+  '나이','낙엽','노을','노인','남자','내장','녹즙','닌자','난초','날치','눈총',
+  '냅킨','넝쿨','노크','낙타','네트','노트','남편','눈썹',
+  
+  // === ㄷ 초성 ===
+  '단감','달걀','달력','담요','당근','대리','대포','대학','대회','덕담','도끼','도시','도장','도토리','도끼','독감','돈가스','돌고래','동굴','동상','돼지','두개','두꺼비','두부','두유','두통','둥지','드럼','드론','등대','등산','등불','딸기','땅콩',
+  
+  // === ㄹ 초성 ===
+  '라디오','라면','라이터','램프','러시아','레고','레몬','레이저','로봇','로켓','로션','롤러','롯데','루비','리본','리조트','립스틱',
+  
+  // === ㅁ 초성 ===
+  '마디','만두','마당','매듭','맷돌','메달','면도','모델','무당','무대',
+  '마루','만루','멜론','머루','머리','모래','목련','무릎','무리','미로',
+  '매미','맹물','먹물','메모','메밀','목마','몸매',
+  '마법','맨발','모빌','목발','묘비','물병',
+  '마술','만세','매실','맨션','맨손','메스','메시','명상','목사','목수','무사','무쇠','무술','문신','물소','미소',
+  '마을','마음','먹이','명언','목욕','무용','문어','물엿','미역','미인','밀양',
+  '매점','맥주','메주','명절','모자','목장','목재','문제','문종',
+  '막창','망치','멸치','명찰','뭉크','밀크','밍크','망토','명태',
+  '명패','모피','문패','맨홀','명함','명화','모형','미끼','말뚝','멜빵',
+  
+  // === ㅂ 초성 ===
+  '바구니','바나나','바늘','바다','바둑','바위','박수','박쥐','반지','발목','발바닥','밤나무','방망이','방석','방울','배구','배꼽','배추','백조','뱀장어','버섯','번개','벌레','벌집','범인','법정','벼락','벼룩','벽돌','병원','보물','보석','보자기','복숭아','볼펜','봉투','부엌','부채','북극','북어','분수','불꽃','붕어','블라우스','비누','비둘기','비빔밥','빗자루','빨대','빨래','빵집','뻐꾸기','뿌리',
+  
+  // === ㅅ 초성 ===
+  '사과','사냥','사다리','사또','사막','사슴','사자','사탕','산신령','살구','삼겹살','삼촌','삽','상어','상자','새벽','새장','색연필','생선','샴푸','샤워','샤프','서랍','서리','서울','석탑','선물','선생','선풍기','설탕','성냥','성벽','성조기','세수','세탁','소금','소나기','소방','손수레','솜사탕','송곳','송아지','쇼파','수박','수염','수저','수첩','순대','숟가락','스님','스키','슬리퍼','습관','승강기','시계','시금치','시루','시소','시험','식빵','신발','신호등','심장','싱크대','쌀알','쌍둥이',
+  
+  // === ㅇ 초성 ===
+  '아기','아령','아빠','아이스','악어','안개','안경','알람','암소','압정','앵무새','약국','양말','양복','양파','어깨','어부','얼룩말','에어컨','엘리베이터','여우','연고','연꽃','연필','열매','염소','엽서','영화','오리','오므라이스','오이','오징어','오케스트라','옥수수','온도계','올챙이','옷장','왕관','외투','요리사','요정','용궁','용돈','우물','우유','우주','우편','운동화','원숭이','월급','유리','유치원','은행','음악','의사','의자','이빨','이사','이슬','인형','일기','임금','잉어',
+  
+  // === ㅈ 초성 ===
+  '자두','자석','자전거','작두','잠옷','잠자리','장갑','장구','장군','장난감','장미','재떨이','재판','저울','저주','저금통','전구','전기','전선','전화','절벽','점쟁이','접시','젓가락','정글','정원','제비','조개','조끼','졸업','종이','종이배','주머니','주방','주사','주사위','주스','주전자','죽순','줄넘기','쥐덫','지갑','지구','지도','지렁이','지붕','지우개','지팡이','지폐','진공','진주','질투','짚신','짝사랑','찌개',
+  
+  // === ㅊ 초성 ===
+  '차고','창문','창밖','책가방','책상','천둥','천사','천장','철도','첨성대','첫눈','청개구리','청소','체온','초등','초인종','초콜릿','총각','추억','추위','축구','축제','출근','출발','충치','치마','치아','치약','친구','침대','침묵','칫솔',
+  
+  // === ㅋ 초성 ===
+  '카드','카메라','카센터','카페','칼국수','칼날','캐나다','캔디','캠프','커튼','커피','컴퓨터','컵라면','케이크','코끼리','코미디','코알라','콘서트','콧물','쿠키','크림','클립','키보드','킥복싱',
+  
+  // === ㅌ 초성 ===
+  '타조','탈옥','탬버린','터널','터틀넥','털모자','테니스','테이블','토끼','토마토','통닭','통조림','트럭','트로피','티셔츠','틀니',
+  
+  // === ㅍ 초성 ===
+  '파도','파랑','파리','파마','파인애플','파출소','판다','판자','팔찌','팥빙수','패딩','팬티','펭귄','포도','포장','포크','폭포','폭탄','표범','표창','풀밭','풀장','풍경','풍선','풍차','프라이팬','프로젝터','플라멩코','플루트','피라미드','피아노','피자','필통',
+  
+  // === ㅎ 초성 ===
+  '하마','하늘','하모니카','하품','학교','학생','학자','한글','한라산','할머니','할아버지','함박눈','함정','항구','해골','해바라기','해변','해적','햄버거','햇빛','향수','허리','허수아비','헤어드라이기','헬멧','혀','현관','현미경','혓바닥','호두','호랑이','호박','호수','호주','호텔','홀더','홍수','화분','화살','화장실','화초','환자','황금','황무지','회사','회장','횡단보도','후식','후추','훈련','휘파람','휴가','휴지','흑백','흙',
+  
+  // === 4글자 이상 사자성어/속담/명사 ===
+  '가는날이장날','개천에서용난다','고양이세수','구슬땀','그림의떡','금강산','까치설날','꿩대신닭',
+  '낙동강오리알','남대문','놀이공원','놀부심보',
+  '다람쥐','달동네','달맞이꽃','닭갈비','동화책','돼지저금통','두레박','뒷골목','딱따구리','땅거미','떡국','떡볶이',
+  '러브레터','롤러코스터',
+  '말티즈','매운탕','메뚜기','멸치볶음','모래성','몰래카메라','무궁화','물레방아','물수제비','미꾸라지',
+  '바람개비','바둑판','바이올린','박쥐우산','반딧불이','발레리나','방송국','배드민턴','백두산','벙어리장갑','벨트','별똥별','별자리','보온병','복조리','볶음밥','북극곰','불고기','불교','비빔국수','비행접시','빈대떡','빵집',
+  '사탕수수','산삼','삼국지','상자','색종이','생일카드','서점','석류','선인장','소나무','손거울','손수건','솜이불','수달','수선화','수수께끼','슈퍼마켓','스테이크','스펀지','승무원','시금치','실내화','실로폰','심봉사','싸움꾼',
+  '안마의자','알림장','야구방망이','약도','양궁','어버이날','엉덩이','에스컬레이터','오뚝이','옥상','옹달샘','왕눈이','외눈박이','요구르트','우비','웨딩드레스','윷놀이','은하수','음악회','이층집','잉꼬부부',
+  '자동차','자장면','작곡가','장미꽃','재롱잔치','저승사자','전봇대','절구통','점심시간','정수기','조종사','족집게','졸업식','좀비','주유소','주전부리','줄다리기','중국집','쥐불놀이','지진','진돗개','쪽지시험',
+  '차창','참새','참외','창호지','책꽂이','천문대','첫사랑','체중계','초대장','초록불','촛불','치즈','칠판','칫솔걸이',
+  '카레','카운터','칼슘','캠핑카','커플링','컵케이크','콧수염','쿠션',
+  '타임머신','탬버린','투표','튀김','티라노사우루스',
+  '파리채','파스','파파야','펑크','페달','편지봉투','폭포수','표지판','푸딩','풍뎅이','프리지아','플래카드','피리','핀란드',
+  '하드디스크','한옥마을','할로윈','해수욕장','해초','햇살','햄스터','향초','헬리콥터','현수막','호떡','호박엿','홍시','화살표','활','황소','회오리','횃불','훈제'
+];
+
+let ROUNDS_PER_PLAYER = 4; // 기본값 (방장이 로비에서 변경 가능)
+let ROUND_TIME = 120;       // 기본값 (방장이 로비에서 변경 가능)
+const MAX_PLAYERS = 8;
+
+// ========== 상태 ==========
+let myId = null;
+let myNick = '';
+let isHost = false;
+let peer = null;
+let connections = {}; // peerId -> connection (호스트용: 모든 클라이언트 / 클라이언트용: 호스트만)
+
+// 게임 상태 (호스트가 권위 있음, 클라이언트는 수신해서 반영)
+let gameState = {
+  players: [], // [{id, nick, score}]
+  round: 0,
+  totalRounds: 0,
+  drawerId: null,
+  word: '',
+  timeLeft: 0,
+  correctGuessers: [], // 이번 라운드에 맞춘 사람 id들
+  inProgress: false
+};
+
+let timerInterval = null;
+let myColor = '#2C2C2A';
+let myBrush = 4;
+
+// ========== 유틸 ==========
+function uid(len=6) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+function addChat(text, type='', sender='') {
+  const box = document.getElementById('chat-box');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + type;
+  if (sender) {
+    div.innerHTML = '<span class="sender">' + escapeHtml(sender) + ':</span>' + escapeHtml(text);
+  } else {
+    div.textContent = text;
+  }
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatTime(sec) {
+  sec = Math.max(0, sec);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function showScreen(id) {
+  ['start-screen','lobby-screen','game-screen','end-screen'].forEach(s => {
+    document.getElementById(s).classList.add('hidden');
+  });
+  document.getElementById(id).classList.remove('hidden');
+}
+
+// ========== 방 만들기 / 참가 ==========
+function createRoom() {
+  const nick = document.getElementById('nickname').value.trim();
+  if (!nick) { alert('닉네임을 입력해주세요'); return; }
+  myNick = nick;
+  isHost = true;
+  const roomCode = uid(6);
+  myId = 'draw-' + roomCode;
+  
+  peer = new Peer(myId, { debug: 1 });
+  peer.on('open', id => {
+    document.getElementById('room-code-display').textContent = roomCode;
+    document.getElementById('host-section').classList.remove('hidden');
+    document.getElementById('host-start-btn').classList.remove('hidden');
+    document.getElementById('host-settings').classList.remove('hidden');
+    setupHostSettingsSliders();
+    gameState.players = [{ id: myId, nick: myNick, score: 0 }];
+    showScreen('lobby-screen');
+    renderLobby();
+  });
+  peer.on('connection', handleIncomingConnection);
+  peer.on('error', err => {
+    console.error(err);
+    alert('연결 오류: ' + err.type + '\n다시 시도해주세요.');
+  });
+}
+
+function setupHostSettingsSliders() {
+  const roundsSlider = document.getElementById('rounds-per-player');
+  const roundsOut = document.getElementById('rounds-per-player-out');
+  const timeSlider = document.getElementById('round-time');
+  const timeOut = document.getElementById('round-time-out');
+  
+  const updatePreview = () => {
+    ROUNDS_PER_PLAYER = parseInt(roundsSlider.value);
+    ROUND_TIME = parseInt(timeSlider.value);
+    roundsOut.textContent = ROUNDS_PER_PLAYER + '번';
+    const m = Math.floor(ROUND_TIME / 60);
+    const s = ROUND_TIME % 60;
+    timeOut.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    const total = gameState.players.length * ROUNDS_PER_PLAYER;
+    document.getElementById('total-rounds-preview').textContent = total + '라운드 (약 ' + Math.ceil(total * ROUND_TIME / 60) + '분)';
+  };
+  
+  roundsSlider.addEventListener('input', updatePreview);
+  timeSlider.addEventListener('input', updatePreview);
+  updatePreview();
+}
+
+function joinRoom() {
+  const nick = document.getElementById('nickname').value.trim();
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (!nick) { alert('닉네임을 입력해주세요'); return; }
+  if (!code) { alert('방 코드를 입력해주세요'); return; }
+  myNick = nick;
+  isHost = false;
+  const hostId = 'draw-' + code;
+  myId = 'draw-guest-' + uid(8);
+  
+  peer = new Peer(myId, { debug: 1 });
+  peer.on('open', () => {
+    const conn = peer.connect(hostId, { reliable: true });
+    conn.on('open', () => {
+      connections[hostId] = conn;
+      conn.send({ type: 'join', nick: myNick, id: myId });
+      document.getElementById('waiting-msg').classList.remove('hidden');
+      showScreen('lobby-screen');
+    });
+    conn.on('data', handleMessage);
+    conn.on('close', () => {
+      alert('방장과의 연결이 끊어졌습니다.');
+      location.reload();
+    });
+  });
+  peer.on('error', err => {
+    console.error(err);
+    if (err.type === 'peer-unavailable') {
+      alert('해당 방을 찾을 수 없습니다. 방 코드를 확인해주세요.');
+    } else {
+      alert('연결 오류: ' + err.type);
+    }
+  });
+}
+
+function handleIncomingConnection(conn) {
+  // 호스트가 새 참가자 받음
+  conn.on('open', () => {
+    if (gameState.players.length >= MAX_PLAYERS || gameState.inProgress) {
+      conn.send({ type: 'rejected', reason: gameState.inProgress ? '게임이 이미 시작되었습니다' : '방이 가득 찼습니다' });
+      setTimeout(() => conn.close(), 500);
+      return;
+    }
+    connections[conn.peer] = conn;
+  });
+  conn.on('data', data => handleMessage(data, conn));
+  conn.on('close', () => {
+    delete connections[conn.peer];
+    if (isHost) {
+      const leavingPlayer = gameState.players.find(p => p.id === conn.peer);
+      gameState.players = gameState.players.filter(p => p.id !== conn.peer);
+      if (leavingPlayer) {
+        broadcast({ type: 'player-left', nick: leavingPlayer.nick, players: gameState.players });
+      }
+      renderLobby();
+      renderPlayersStatus();
+    }
+  });
+}
+
+function copyCode() {
+  const code = document.getElementById('room-code-display').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    addChat('코드가 복사되었습니다', 'system');
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = code;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+}
+
+// ========== 메시지 처리 ==========
+function handleMessage(data, senderConn) {
+  // senderConn은 호스트 입장에서 "누구한테서 왔는지" 구분용
+  switch (data.type) {
+    case 'join':
+      // 호스트만 받음
+      if (!isHost) return;
+      gameState.players.push({ id: data.id, nick: data.nick, score: 0 });
+      renderLobby();
+      // 모든 참가자에게 현재 상태 브로드캐스트
+      broadcast({ type: 'lobby-update', players: gameState.players });
+      break;
+    
+    case 'lobby-update':
+      gameState.players = data.players;
+      renderLobby();
+      break;
+    
+    case 'rejected':
+      alert(data.reason);
+      location.reload();
+      break;
+    
+    case 'player-left':
+      gameState.players = data.players;
+      renderLobby();
+      renderPlayersStatus();
+      addChat(data.nick + '님이 나갔습니다', 'system');
+      break;
+    
+    case 'game-start':
+      gameState.totalRounds = data.totalRounds;
+      gameState.players = data.players;
+      showScreen('game-screen');
+      // 클라이언트도 캔버스 초기화 필요!
+      if (!isHost) setupCanvas();
+      // 방장만 재시작 버튼 표시
+      if (isHost) document.getElementById('host-controls').classList.remove('hidden');
+      // 채팅창 초기화 (재시작 시)
+      document.getElementById('chat-box').innerHTML = '';
+      break;
+    
+    case 'game-restart':
+      // 클라이언트 측: 채팅창 비우기 (곧 game-start가 올 것)
+      if (!isHost) {
+        document.getElementById('chat-box').innerHTML = '';
+        addChat('방장이 게임을 재시작했습니다', 'system');
+      }
+      break;
+    
+    case 'round-start':
+      onRoundStart(data);
+      break;
+    
+    case 'draw':
+      if (data.senderId !== myId) applyRemoteDraw(data);
+      break;
+    
+    case 'clear-canvas':
+      clearCanvasLocal();
+      break;
+    
+    case 'guess':
+      // 호스트가 받아서 판정
+      if (!isHost) return;
+      handleGuess(data.playerId, data.text);
+      break;
+    
+    case 'pass':
+      // 호스트가 받아서 처리
+      if (!isHost) return;
+      handlePass(data.playerId);
+      break;
+    
+    case 'chat':
+      addChat(data.text, data.msgType || '', data.nick || '');
+      break;
+    
+    case 'score-update':
+      gameState.players = data.players;
+      renderPlayersStatus();
+      break;
+    
+    case 'round-end':
+      onRoundEnd(data);
+      break;
+    
+    case 'game-end':
+      onGameEnd(data);
+      break;
+  }
+}
+
+function broadcast(msg, excludeId=null) {
+  Object.entries(connections).forEach(([pid, conn]) => {
+    if (pid !== excludeId && conn.open) {
+      try { conn.send(msg); } catch(e) { console.warn('send failed', e); }
+    }
+  });
+}
+
+function sendToHost(msg) {
+  // 클라이언트 전용: 호스트에게만 보냄
+  const hostConn = Object.values(connections)[0];
+  if (hostConn && hostConn.open) hostConn.send(msg);
+}
+
+// ========== 로비 렌더링 ==========
+function renderLobby() {
+  const container = document.getElementById('lobby-players');
+  container.innerHTML = '';
+  gameState.players.forEach(p => {
+    const chip = document.createElement('span');
+    chip.className = 'player-chip' + (p.id === myId ? ' me' : '');
+    chip.textContent = p.nick + (p.id === myId ? ' (나)' : '');
+    container.appendChild(chip);
+  });
+  document.getElementById('player-count').textContent = '(' + gameState.players.length + '/' + MAX_PLAYERS + ')';
+  
+  if (isHost) {
+    const btn = document.getElementById('start-game-btn');
+    if (gameState.players.length >= 2) {
+      btn.disabled = false;
+      btn.textContent = '게임 시작 (' + gameState.players.length + '명, ' + (gameState.players.length * ROUNDS_PER_PLAYER) + '라운드)';
+    } else {
+      btn.disabled = true;
+      btn.textContent = '최소 2명 필요';
+    }
+    // 총 라운드 예상치 업데이트
+    const preview = document.getElementById('total-rounds-preview');
+    if (preview) {
+      const total = gameState.players.length * ROUNDS_PER_PLAYER;
+      preview.textContent = total + '라운드 (약 ' + Math.ceil(total * ROUND_TIME / 60) + '분)';
+    }
+  }
+}
+
+// ========== 게임 로직 (호스트만 실행) ==========
+function startGame() {
+  if (!isHost) return;
+  if (gameState.players.length < 2) { alert('2명 이상 필요합니다'); return; }
+  gameState.inProgress = true;
+  gameState.totalRounds = gameState.players.length * ROUNDS_PER_PLAYER;
+  gameState.round = 0;
+  // 점수 초기화 (재시작 시에도 깨끗하게)
+  gameState.players.forEach(p => p.score = 0);
+  roundWordCache = [];
+  
+  broadcast({ type: 'game-start', totalRounds: gameState.totalRounds, players: gameState.players });
+  showScreen('game-screen');
+  // 방장용 재시작 버튼 표시
+  document.getElementById('host-controls').classList.remove('hidden');
+  setupCanvas();
+  setTimeout(() => hostStartNextRound(), 1000);
+}
+
+function restartGame() {
+  if (!isHost) { alert('방장만 재시작할 수 있습니다'); return; }
+  if (!confirm('현재 게임을 끝내고 같은 멤버로 다시 시작하시겠어요? 점수는 초기화됩니다.')) return;
+  
+  // 진행 중인 타이머/라운드 정리
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  gameState.roundEnding = false;
+  gameState.inProgress = false;
+  gameState.correctGuessers = [];
+  
+  // 채팅창 비우기
+  document.getElementById('chat-box').innerHTML = '';
+  
+  // 재시작 알림을 모두에게 브로드캐스트 (채팅창 비우기 등 처리)
+  broadcast({ type: 'game-restart' });
+  
+  // 바로 새 게임 시작
+  startGame();
+}
+
+let roundWordCache = [];
+function hostStartNextRound() {
+  console.log('[HOST] hostStartNextRound 시작. isHost:', isHost, '현재 round:', gameState.round, 'totalRounds:', gameState.totalRounds);
+  if (!isHost) return;
+  gameState.round++;
+  gameState.roundEnding = false; // 플래그 리셋
+  
+  if (gameState.round > gameState.totalRounds) {
+    console.log('[HOST] 모든 라운드 종료, 게임 종료');
+    hostEndGame();
+    return;
+  }
+  
+  const drawerIdx = (gameState.round - 1) % gameState.players.length;
+  gameState.drawerId = gameState.players[drawerIdx].id;
+  gameState.correctGuessers = [];
+  
+  // 단어 선정 (중복 방지)
+  let available = WORDS.filter(w => !roundWordCache.includes(w));
+  if (available.length === 0) { roundWordCache = []; available = WORDS; }
+  gameState.word = available[Math.floor(Math.random() * available.length)];
+  roundWordCache.push(gameState.word);
+  gameState.timeLeft = ROUND_TIME;
+  
+  // 모든 사람에게 라운드 시작 알림 (그리는 사람에게만 단어 노출)
+  console.log('[HOST] 라운드', gameState.round, '시작. 그리는 사람 ID:', gameState.drawerId, '단어:', gameState.word);
+  // 중요: forEach 내부에서 onRoundStart가 호출되면 gameState.word를 덮어쓸 수 있으므로 로컬 변수에 보관
+  const roundWord = gameState.word;
+  const roundWordLen = gameState.word.length;
+  const roundDrawerId = gameState.drawerId;
+  const roundDrawerNick = gameState.players[drawerIdx].nick;
+  const roundNum = gameState.round;
+  const totalRoundsNum = gameState.totalRounds;
+  const playersSnapshot = gameState.players;
+  
+  gameState.players.forEach(p => {
+    const msg = {
+      type: 'round-start',
+      round: roundNum,
+      totalRounds: totalRoundsNum,
+      drawerId: roundDrawerId,
+      drawerNick: roundDrawerNick,
+      word: p.id === roundDrawerId ? roundWord : null,
+      wordLength: roundWordLen,
+      timeLeft: ROUND_TIME,
+      players: playersSnapshot
+    };
+    console.log('[HOST] ->', p.nick, '(id:', p.id, ') 에게 전송. word:', msg.word, 'wordLength:', msg.wordLength, 'connections에 있음?', !!connections[p.id]);
+    if (p.id === myId) {
+      onRoundStart(msg);
+    } else if (connections[p.id]) {
+      connections[p.id].send(msg);
+    } else {
+      console.error('[HOST] 연결 없음!', p.id, '사용 가능 연결:', Object.keys(connections));
+    }
+  });
+  // onRoundStart가 gameState.word를 덮어썼을 수 있으므로 복원
+  gameState.word = roundWord;
+  
+  // 호스트 타이머
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (gameState.roundEnding) { clearInterval(timerInterval); return; }
+    gameState.timeLeft--;
+    document.getElementById('timer').textContent = formatTime(gameState.timeLeft);
+    if (gameState.timeLeft <= 0) {
+      console.log('[HOST] 시간 종료');
+      hostEndRound();
+    }
+  }, 1000);
+}
+
+function handleGuess(playerId, text) {
+  if (!isHost) return;
+  const player = gameState.players.find(p => p.id === playerId);
+  if (!player) return;
+  
+  // 그리는 사람은 채팅 전송 안 함 (단어 노출 위험)
+  if (playerId === gameState.drawerId) {
+    return;
+  }
+  
+  const guess = text.trim();
+  const answer = gameState.word.trim();
+  
+  // 이미 누군가 정답을 맞췄거나 라운드가 끝나는 중이면 점수 인정 안 함
+  const alreadyAnswered = gameState.correctGuessers.length > 0 || gameState.roundEnding;
+  
+  if (guess === answer && !alreadyAnswered) {
+    // 선착순 1명 정답!
+    gameState.correctGuessers.push(playerId);
+    // 점수: 빨리 맞출수록 높음 (남은 시간 × 5, 최소 50점)
+    const scoreGain = Math.max(50, Math.round(gameState.timeLeft * 5));
+    player.score += scoreGain;
+    
+    // 그리는 사람도 점수 (정답자 점수의 절반)
+    const drawer = gameState.players.find(p => p.id === gameState.drawerId);
+    if (drawer) drawer.score += Math.round(scoreGain / 2);
+    
+    const announceText = '🎉 ' + player.nick + '님이 선착순 정답! (+' + scoreGain + '점)';
+    broadcast({ type: 'chat', text: announceText, msgType: 'correct' });
+    addChat(announceText, 'correct');
+    
+    broadcast({ type: 'score-update', players: gameState.players });
+    renderPlayersStatus();
+    
+    console.log('[HOST] 선착순 정답자 발생, 0.8초 후 라운드 종료');
+    setTimeout(() => hostEndRound(), 800);
+  } else {
+    // 오답/일반 채팅 — 500점 이상이면 10점 감점
+    let displayText = text;
+    if (player.score >= 500) {
+      player.score -= 10;
+      displayText = text + ' (-10점)';
+      broadcast({ type: 'score-update', players: gameState.players });
+      renderPlayersStatus();
+    }
+    broadcast({ type: 'chat', text: displayText, nick: player.nick });
+    addChat(displayText, '', player.nick);
+  }
+}
+
+function hostEndRound() {
+  if (!isHost) return;
+  console.log('[HOST] hostEndRound 호출. roundEnding:', gameState.roundEnding);
+  if (gameState.roundEnding) return; // 중복 호출 방지
+  gameState.roundEnding = true;
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = null;
+  
+  const endMsg = {
+    type: 'round-end',
+    word: gameState.word,
+    players: gameState.players
+  };
+  broadcast(endMsg);
+  onRoundEnd(endMsg);
+  
+  console.log('[HOST] 3.5초 후 다음 라운드 시작 예약');
+  setTimeout(() => {
+    console.log('[HOST] 타이머 발동, hostStartNextRound 호출');
+    hostStartNextRound();
+  }, 3500);
+}
+
+function hostEndGame() {
+  if (!isHost) return;
+  const sorted = [...gameState.players].sort((a,b) => b.score - a.score);
+  const endMsg = { type: 'game-end', players: sorted };
+  broadcast(endMsg);
+  onGameEnd(endMsg);
+}
+
+// ========== 클라이언트 이벤트 (모두 실행) ==========
+function onRoundStart(data) {
+  console.log('[CLIENT] round-start 수신. 내가 그리는 사람?', data.drawerId === myId, '받은 단어:', JSON.stringify(data.word), 'wordLength:', data.wordLength);
+  gameState.round = data.round;
+  gameState.totalRounds = data.totalRounds;
+  gameState.drawerId = data.drawerId;
+  gameState.players = data.players;
+  gameState.word = data.word || '';
+  gameState.timeLeft = data.timeLeft;
+  gameState.correctGuessers = [];
+  
+  document.getElementById('round-num').textContent = data.round;
+  document.getElementById('round-total').textContent = data.totalRounds;
+  document.getElementById('drawer-name').textContent = data.drawerNick;
+  document.getElementById('timer').textContent = formatTime(data.timeLeft);
+  
+  clearCanvasLocal();
+  renderPlayersStatus();
+  
+  const isDrawer = (data.drawerId === myId);
+  if (isDrawer) {
+    document.getElementById('word-reveal').textContent = data.word;
+    document.getElementById('drawing-tools').classList.remove('hidden');
+    document.getElementById('guess-input').placeholder = '채팅 (정답은 비공개)';
+    document.getElementById('guess-input').disabled = true;
+  } else {
+    // 단어 길이만 노출 (_ _ _)
+    document.getElementById('word-reveal').textContent = '_ '.repeat(data.wordLength).trim();
+    document.getElementById('drawing-tools').classList.add('hidden');
+    document.getElementById('guess-input').placeholder = '정답 입력...';
+    document.getElementById('guess-input').disabled = false;
+    document.getElementById('guess-input').focus();
+  }
+  
+  addChat('라운드 ' + data.round + ' 시작! ' + data.drawerNick + '님이 그립니다.', 'system');
+  
+  // 클라이언트도 로컬 타이머 돌림 (시각 동기화)
+  if (!isHost) {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      gameState.timeLeft--;
+      document.getElementById('timer').textContent = formatTime(gameState.timeLeft);
+      if (gameState.timeLeft <= 0) clearInterval(timerInterval);
+    }, 1000);
+  }
+}
+
+function onRoundEnd(data) {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  gameState.players = data.players;
+  renderPlayersStatus();
+  addChat('⏱ 라운드 종료! 정답은 "' + data.word + '" 였습니다.', 'system');
+}
+
+function onGameEnd(data) {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  const sorted = data.players;
+  const winner = sorted[0];
+  document.getElementById('winner-name').textContent = '🏆 ' + winner.nick + ' 우승!';
+  
+  const container = document.getElementById('final-scores');
+  container.innerHTML = '';
+  sorted.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display: flex; justify-content: space-between; padding: 8px 0; ' + (i < sorted.length-1 ? 'border-bottom: 0.5px solid rgba(0,0,0,0.08);' : '');
+    const medals = ['🥇','🥈','🥉'];
+    const medal = medals[i] || (i + 1) + '위';
+    row.innerHTML = '<span>' + medal + ' ' + escapeHtml(p.nick) + '</span><strong>' + p.score + '점</strong>';
+    container.appendChild(row);
+  });
+  
+  // 방장이면 재시작 버튼, 참가자면 대기 메시지
+  if (isHost) {
+    document.getElementById('end-host-controls').classList.remove('hidden');
+    document.getElementById('end-waiting-msg').classList.add('hidden');
+  } else {
+    document.getElementById('end-host-controls').classList.add('hidden');
+    document.getElementById('end-waiting-msg').classList.remove('hidden');
+  }
+  
+  showScreen('end-screen');
+  // 게임 끝났으니 inProgress 해제 (재시작 가능하게)
+  if (isHost) gameState.inProgress = false;
+}
+
+function renderPlayersStatus() {
+  const container = document.getElementById('players-status');
+  container.innerHTML = '';
+  gameState.players.forEach(p => {
+    const chip = document.createElement('span');
+    let cls = 'player-chip';
+    if (p.id === gameState.drawerId) cls += ' drawing';
+    else if (p.id === myId) cls += ' me';
+    chip.className = cls;
+    const drawingIcon = (p.id === gameState.drawerId) ? '✏️ ' : '';
+    chip.innerHTML = drawingIcon + escapeHtml(p.nick) + (p.id === myId ? ' (나)' : '') + ' <span class="score-badge">' + p.score + '</span>';
+    container.appendChild(chip);
+  });
+}
+
+// ========== 정답/채팅 입력 ==========
+function sendGuess() {
+  const input = document.getElementById('guess-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  
+  if (myId === gameState.drawerId) return; // 그리는 사람은 전송 못함
+  
+  if (isHost) {
+    handleGuess(myId, text);
+  } else {
+    sendToHost({ type: 'guess', playerId: myId, text: text });
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('guess-input').addEventListener('keypress', e => {
+    if (e.key === 'Enter') sendGuess();
+  });
+});
+
+// ========== 캔버스 ==========
+let canvas, ctx, drawing = false, lastX = 0, lastY = 0;
+
+function setupCanvas() {
+  canvas = document.getElementById('canvas');
+  ctx = canvas.getContext('2d');
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  clearCanvasLocal();
+  
+  const getPos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+  };
+  
+  const start = (e) => {
+    if (myId !== gameState.drawerId) return;
+    e.preventDefault();
+    drawing = true;
+    const p = getPos(e);
+    lastX = p.x; lastY = p.y;
+  };
+  const move = (e) => {
+    if (!drawing || myId !== gameState.drawerId) return;
+    e.preventDefault();
+    const p = getPos(e);
+    drawLine(lastX, lastY, p.x, p.y, myColor, myBrush);
+    const msg = { type: 'draw', senderId: myId, x1: lastX, y1: lastY, x2: p.x, y2: p.y, color: myColor, size: myBrush };
+    if (isHost) broadcast(msg);
+    else sendToHost(msg); // 호스트가 나머지에게 릴레이
+    lastX = p.x; lastY = p.y;
+  };
+  const end = () => { drawing = false; };
+  
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  canvas.addEventListener('mouseup', end);
+  canvas.addEventListener('mouseleave', end);
+  canvas.addEventListener('touchstart', start);
+  canvas.addEventListener('touchmove', move);
+  canvas.addEventListener('touchend', end);
+  
+  document.querySelectorAll('.color-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      myColor = btn.dataset.color;
+      document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+  document.getElementById('brush-size').addEventListener('input', e => {
+    myBrush = parseInt(e.target.value);
+  });
+}
+
+function drawLine(x1, y1, x2, y2, color, size) {
+  if (!ctx) return;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function applyRemoteDraw(data) {
+  drawLine(data.x1, data.y1, data.x2, data.y2, data.color, data.size);
+  // 호스트는 받은 drawing을 다른 클라이언트에게 릴레이
+  if (isHost) {
+    broadcast(data, data.senderId);
+  }
+}
+
+function clearCanvasLocal() {
+  if (!ctx) return;
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function clearCanvasAction() {
+  if (myId !== gameState.drawerId) return;
+  clearCanvasLocal();
+  const msg = { type: 'clear-canvas' };
+  if (isHost) broadcast(msg);
+  else sendToHost(msg);
+}
+
+function passRound() {
+  // 그리는 사람만 패스 가능
+  if (myId !== gameState.drawerId) return;
+  if (gameState.roundEnding) return;
+  if (!confirm('정말 패스하시겠어요? 아무도 점수를 얻지 못합니다.')) return;
+  
+  if (isHost) {
+    handlePass(myId);
+  } else {
+    sendToHost({ type: 'pass', playerId: myId });
+  }
+}
+
+function handlePass(playerId) {
+  if (!isHost) return;
+  if (playerId !== gameState.drawerId) return;
+  if (gameState.roundEnding) return;
+  
+  const drawer = gameState.players.find(p => p.id === playerId);
+  const nick = drawer ? drawer.nick : '';
+  const announceText = '⏭ ' + nick + '님이 패스했습니다. 정답은 "' + gameState.word + '" 였어요.';
+  broadcast({ type: 'chat', text: announceText, msgType: 'system' });
+  addChat(announceText, 'system');
+  hostEndRound();
+}
+
+// 페이지 로드 시
+showScreen('start-screen');
+// canvas 초기화는 게임 시작 시 setupCanvas()로
+if (document.getElementById('canvas')) {
+  canvas = document.getElementById('canvas');
+  ctx = canvas.getContext('2d');
+  clearCanvasLocal();
+}
+
+// 호스트가 게임 중에 clear-canvas를 받으면 릴레이
+const origHandle = handleMessage;
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1:1 테트리스 대전</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0e1a;
+    color: #e8eaf0;
+    font-family: 'Segoe UI', 'Pretendard', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 {
+    background: linear-gradient(90deg, #6a5acd, #00d4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+    font-size: 32px;
+  }
+  #lobby {
+    background: #141a2e;
+    padding: 32px;
+    border-radius: 16px;
+    max-width: 560px;
+    width: 100%;
+    border: 1px solid #2a3350;
+  }
+  .section { margin-bottom: 24px; }
+  .section h3 { margin-bottom: 12px; color: #00d4ff; font-size: 16px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  input[type="text"] {
+    flex: 1;
+    padding: 10px 14px;
+    background: #0a0e1a;
+    border: 1px solid #2a3350;
+    border-radius: 8px;
+    color: #e8eaf0;
+    font-family: monospace;
+    font-size: 14px;
+  }
+  button {
+    padding: 10px 18px;
+    background: #6a5acd;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+  button:hover:not(:disabled) { background: #7f6fd8; transform: translateY(-1px); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary { background: #2a3350; }
+  button.secondary:hover:not(:disabled) { background: #3a4560; }
+  #myPeerId {
+    background: #0a0e1a;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 13px;
+    border: 1px solid #2a3350;
+    word-break: break-all;
+    margin-bottom: 8px;
+    min-height: 40px;
+  }
+  #status {
+    padding: 10px;
+    border-radius: 8px;
+    background: #1a2238;
+    font-size: 13px;
+    margin-top: 12px;
+    text-align: center;
+  }
+  .status-ok { color: #5dcaa5; }
+  .status-err { color: #e24b4a; }
+  .status-info { color: #85b7eb; }
+
+  #game { display: none; }
+  .game-area {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .player-panel {
+    background: #141a2e;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #2a3350;
+  }
+  .player-panel.me { border-color: #00d4ff; }
+  .player-panel.opponent { border-color: #ff6b9d; }
+  .player-label {
+    font-size: 14px;
+    margin-bottom: 10px;
+    font-weight: 500;
+    text-align: center;
+  }
+  .me .player-label { color: #00d4ff; }
+  .opponent .player-label { color: #ff6b9d; }
+  .board-wrapper { display: flex; gap: 8px; }
+  canvas {
+    background: #05070f;
+    border: 2px solid #2a3350;
+    border-radius: 6px;
+    display: block;
+  }
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 80px;
+  }
+  .side-box {
+    background: #0a0e1a;
+    border: 1px solid #2a3350;
+    border-radius: 6px;
+    padding: 6px;
+    text-align: center;
+  }
+  .side-box-label {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .stats {
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .stats div { display: flex; justify-content: space-between; gap: 12px; }
+  .stats span:last-child { color: #00d4ff; font-weight: 500; }
+
+  .garbage-bar {
+    width: 12px;
+    background: #2a3350;
+    border-radius: 3px;
+    position: relative;
+    align-self: stretch;
+    overflow: hidden;
+  }
+  .garbage-fill {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    background: linear-gradient(180deg, #ff6b9d, #e24b4a);
+    transition: height 0.2s;
+  }
+
+  .items {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+    justify-content: center;
+  }
+  .item-slot {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #2a3350;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    background: #0a0e1a;
+    cursor: pointer;
+    position: relative;
+  }
+  .item-slot.active:hover { border-color: #00d4ff; background: #1a2238; }
+  .item-slot.empty { opacity: 0.3; }
+
+  #controls-info {
+    margin-top: 16px;
+    font-size: 12px;
+    color: #888;
+    text-align: center;
+    max-width: 800px;
+    line-height: 1.6;
+  }
+  kbd {
+    background: #2a3350;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 11px;
+  }
+  #gameover-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .gameover-box {
+    background: #141a2e;
+    padding: 40px;
+    border-radius: 16px;
+    text-align: center;
+    border: 2px solid #00d4ff;
+  }
+  .gameover-box h2 { font-size: 36px; margin-bottom: 16px; }
+  .win { color: #5dcaa5; }
+  .lose { color: #e24b4a; }
+
+  .flash { animation: flash 0.3s; }
+  @keyframes flash {
+    0%, 100% { background: #05070f; }
+    50% { background: #2a3350; }
+  }
+</style>
+</head>
+<body>
+
+<h1>⚡ 1:1 테트리스 대전</h1>
+
+<div id="lobby">
+  <div class="section">
+    <h3>내 ID (상대에게 전달)</h3>
+    <div id="myPeerId">연결 중...</div>
+    <button onclick="copyId()" class="secondary">ID 복사</button>
+  </div>
+
+  <div class="section">
+    <h3>상대 ID로 접속</h3>
+    <div class="row">
+      <input type="text" id="opponentIdInput" placeholder="상대의 ID를 입력하세요">
+      <button onclick="connectToPeer()" id="connectBtn">접속</button>
+    </div>
+  </div>
+
+  <div id="status" class="status-info">PeerJS 서버에 연결 중...</div>
+</div>
+
+<div id="game">
+  <div class="game-area">
+    <!-- 내 보드 -->
+    <div class="player-panel me">
+      <div class="player-label">내 보드</div>
+      <div class="board-wrapper">
+        <div class="side-panel">
+          <div class="side-box">
+            <div class="side-box-label">HOLD</div>
+            <canvas id="myHold" width="80" height="80"></canvas>
+          </div>
+          <div class="stats">
+            <div><span>점수</span><span id="myScore">0</span></div>
+            <div><span>줄</span><span id="myLines">0</span></div>
+            <div><span>콤보</span><span id="myCombo">0</span></div>
+          </div>
+          <div class="items">
+            <div class="item-slot empty" id="mySlot0" onclick="useItem(0)"></div>
+            <div class="item-slot empty" id="mySlot1" onclick="useItem(1)"></div>
+            <div class="item-slot empty" id="mySlot2" onclick="useItem(2)"></div>
+          </div>
+        </div>
+        <canvas id="myBoard" width="300" height="600"></canvas>
+        <div class="garbage-bar"><div class="garbage-fill" id="myGarbageFill" style="height:0%"></div></div>
+        <div class="side-panel">
+          <div class="side-box">
+            <div class="side-box-label">NEXT</div>
+            <canvas id="myNext" width="80" height="240"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 상대 보드 -->
+    <div class="player-panel opponent">
+      <div class="player-label">상대 보드</div>
+      <div class="board-wrapper">
+        <div class="side-panel">
+          <div class="side-box">
+            <div class="side-box-label">HOLD</div>
+            <canvas id="oppHold" width="80" height="80"></canvas>
+          </div>
+          <div class="stats">
+            <div><span>점수</span><span id="oppScore">0</span></div>
+            <div><span>줄</span><span id="oppLines">0</span></div>
+            <div><span>콤보</span><span id="oppCombo">0</span></div>
+          </div>
+        </div>
+        <canvas id="oppBoard" width="300" height="600"></canvas>
+        <div class="garbage-bar"><div class="garbage-fill" id="oppGarbageFill" style="height:0%"></div></div>
+        <div class="side-panel">
+          <div class="side-box">
+            <div class="side-box-label">NEXT</div>
+            <canvas id="oppNext" width="80" height="240"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls-info">
+    <kbd>←</kbd> <kbd>→</kbd> 이동 | <kbd>↓</kbd> 소프트 드롭 | <kbd>Space</kbd> 하드 드롭 |
+    <kbd>↑</kbd> 또는 <kbd>X</kbd> 오른쪽 회전 | <kbd>Z</kbd> 왼쪽 회전 |
+    <kbd>C</kbd> 홀드 | <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> 아이템 사용
+  </div>
+</div>
+
+<div id="gameover-overlay">
+  <div class="gameover-box">
+    <h2 id="gameoverText">승리!</h2>
+    <div id="rematchStatus" style="margin: 16px 0; font-size: 14px; color: #888; min-height: 20px;"></div>
+    <div style="display: flex; gap: 8px; justify-content: center;">
+      <button onclick="requestRematch()" id="rematchBtn">🔄 재경기</button>
+      <button onclick="location.reload()" class="secondary">나가기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 상수 및 설정
+// ============================================================
+const COLS = 10;
+const ROWS = 20;
+const CELL = 30;
+const OPP_CELL = 30;
+
+const COLORS = {
+  0: '#05070f',
+  I: '#00d4ff',
+  O: '#ffd93d',
+  T: '#b967ff',
+  S: '#5dcaa5',
+  Z: '#e24b4a',
+  J: '#378add',
+  L: '#f0997b',
+  G: '#555555' // garbage
+};
+
+// 테트로미노 정의 (SRS 기준)
+const PIECES = {
+  I: [
+    [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+    [[0,0,1,0],[0,0,1,0],[0,0,1,0],[0,0,1,0]],
+    [[0,0,0,0],[0,0,0,0],[1,1,1,1],[0,0,0,0]],
+    [[0,1,0,0],[0,1,0,0],[0,1,0,0],[0,1,0,0]]
+  ],
+  O: [
+    [[1,1],[1,1]], [[1,1],[1,1]], [[1,1],[1,1]], [[1,1],[1,1]]
+  ],
+  T: [
+    [[0,1,0],[1,1,1],[0,0,0]],
+    [[0,1,0],[0,1,1],[0,1,0]],
+    [[0,0,0],[1,1,1],[0,1,0]],
+    [[0,1,0],[1,1,0],[0,1,0]]
+  ],
+  S: [
+    [[0,1,1],[1,1,0],[0,0,0]],
+    [[0,1,0],[0,1,1],[0,0,1]],
+    [[0,0,0],[0,1,1],[1,1,0]],
+    [[1,0,0],[1,1,0],[0,1,0]]
+  ],
+  Z: [
+    [[1,1,0],[0,1,1],[0,0,0]],
+    [[0,0,1],[0,1,1],[0,1,0]],
+    [[0,0,0],[1,1,0],[0,1,1]],
+    [[0,1,0],[1,1,0],[1,0,0]]
+  ],
+  J: [
+    [[1,0,0],[1,1,1],[0,0,0]],
+    [[0,1,1],[0,1,0],[0,1,0]],
+    [[0,0,0],[1,1,1],[0,0,1]],
+    [[0,1,0],[0,1,0],[1,1,0]]
+  ],
+  L: [
+    [[0,0,1],[1,1,1],[0,0,0]],
+    [[0,1,0],[0,1,0],[0,1,1]],
+    [[0,0,0],[1,1,1],[1,0,0]],
+    [[1,1,0],[0,1,0],[0,1,0]]
+  ]
+};
+
+// SRS 월킥 테이블 (간단 버전)
+const KICKS = {
+  '0-1': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+  '1-0': [[0,0],[1,0],[1,-1],[0,2],[1,2]],
+  '1-2': [[0,0],[1,0],[1,-1],[0,2],[1,2]],
+  '2-1': [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
+  '2-3': [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
+  '3-2': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+  '3-0': [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
+  '0-3': [[0,0],[1,0],[1,1],[0,-2],[1,-2]]
+};
+
+const PIECE_TYPES = ['I','O','T','S','Z','J','L'];
+
+// 공격량 테이블
+const ATTACK_TABLE = { 1: 0, 2: 1, 3: 2, 4: 4 };
+const COMBO_BONUS = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5];
+
+// 아이템 정의
+const ITEMS = {
+  SHIELD:  { icon: '🛡️', name: '쉴드', desc: '다음 방해 블록 한 번 막기' },
+  CLEAR:   { icon: '💥', name: '클리어', desc: '맨 아래 2줄 삭제' },
+  BOMB:    { icon: '💣', name: '폭탄', desc: '상대에게 4줄 즉시 공격' },
+  BLIND:   { icon: '🌫️', name: '블라인드', desc: '상대 화면 5초간 가림' },
+  REVERSE: { icon: '🔄', name: '반전', desc: '상대 조작 3초간 반전' },
+  FREEZE:  { icon: '❄️', name: '얼음', desc: '상대 2초간 블록 정지' }
+};
+const ITEM_KEYS = Object.keys(ITEMS);
+
+// ============================================================
+// 게임 상태
+// ============================================================
+let myGame = null;
+let oppState = null;
+let conn = null;
+let peer = null;
+let isHost = false;
+let gameStarted = false;
+
+// 재경기 상태
+let myWantsRematch = false;
+let opponentWantsRematch = false;
+let wins = 0;
+let losses = 0;
+
+// ============================================================
+// 로비 & PeerJS 연결
+// ============================================================
+function setStatus(msg, type = 'info') {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status-' + type;
+}
+
+function initPeer() {
+  peer = new Peer();
+  peer.on('open', id => {
+    document.getElementById('myPeerId').textContent = id;
+    setStatus('준비 완료. 상대의 ID를 입력하거나, 내 ID를 상대에게 전달하세요.', 'ok');
+  });
+  peer.on('connection', c => {
+    conn = c;
+    isHost = true;
+    setupConnection();
+  });
+  peer.on('error', err => {
+    setStatus('오류: ' + err.message, 'err');
+  });
+}
+
+function copyId() {
+  const id = document.getElementById('myPeerId').textContent;
+  navigator.clipboard.writeText(id).then(() => {
+    setStatus('ID가 복사되었습니다!', 'ok');
+  });
+}
+
+function connectToPeer() {
+  const oppId = document.getElementById('opponentIdInput').value.trim();
+  if (!oppId) return;
+  setStatus('연결 중...', 'info');
+  conn = peer.connect(oppId);
+  isHost = false;
+  setupConnection();
+}
+
+function setupConnection() {
+  conn.on('open', () => {
+    setStatus('연결됨! 게임 시작...', 'ok');
+    // 호스트가 시드를 결정해서 보냄 (양쪽이 같은 블록 순서를 가짐)
+    if (isHost) {
+      const seed = Math.floor(Math.random() * 1000000);
+      conn.send({ type: 'init', seed: seed });
+      setTimeout(() => startGame(seed), 500);
+    }
+  });
+  conn.on('data', data => handleMessage(data));
+  conn.on('close', () => {
+    setStatus('연결이 끊어졌습니다.', 'err');
+  });
+}
+
+function handleMessage(data) {
+  if (data.type === 'init') {
+    startGame(data.seed);
+  } else if (data.type === 'state' && myGame) {
+    oppState = data.state;
+    drawOpponent();
+  } else if (data.type === 'garbage' && myGame) {
+    myGame.pendingGarbage += data.lines;
+    updateGarbageBar();
+  } else if (data.type === 'item' && myGame) {
+    applyIncomingItem(data.item);
+  } else if (data.type === 'gameover' && myGame) {
+    endGame(true); // 상대가 졌으면 내가 승리
+  } else if (data.type === 'rematch_request') {
+    opponentWantsRematch = true;
+    checkRematchReady();
+  } else if (data.type === 'rematch_start') {
+    // 호스트가 보낸 새 시드로 게임 재시작
+    restartGame(data.seed);
+  }
+}
+
+function sendMessage(msg) {
+  if (conn && conn.open) conn.send(msg);
+}
+
+// ============================================================
+// 시드 기반 랜덤 (양쪽이 같은 블록 순서 공유)
+// ============================================================
+function mulberry32(seed) {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ============================================================
+// 게임 클래스
+// ============================================================
+class TetrisGame {
+  constructor(seed) {
+    this.board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+    this.rand = mulberry32(seed);
+    this.bag = [];
+    this.current = null;
+    this.next = [];
+    this.hold = null;
+    this.canHold = true;
+
+    this.score = 0;
+    this.lines = 0;
+    this.combo = 0;
+    this.b2b = false;
+
+    this.pendingGarbage = 0;
+    this.items = [null, null, null];
+
+    this.dropTimer = 0;
+    this.dropInterval = 800;
+    this.lockTimer = 0;
+    this.lockDelay = 500;
+    this.onGround = false;
+
+    // 아이템 효과
+    this.reversed = false;
+    this.reversedUntil = 0;
+    this.frozen = false;
+    this.frozenUntil = 0;
+    this.blinded = false;
+    this.blindedUntil = 0;
+    this.shield = false;
+
+    this.gameOver = false;
+    this.lastState = 0;
+
+    this.refillNext();
+    this.spawnPiece();
+  }
+
+  refillBag() {
+    const types = [...PIECE_TYPES];
+    for (let i = types.length - 1; i > 0; i--) {
+      const j = Math.floor(this.rand() * (i + 1));
+      [types[i], types[j]] = [types[j], types[i]];
+    }
+    this.bag.push(...types);
+  }
+
+  refillNext() {
+    while (this.next.length < 5) {
+      if (this.bag.length === 0) this.refillBag();
+      this.next.push(this.bag.shift());
+    }
+  }
+
+  spawnPiece() {
+    if (this.bag.length === 0) this.refillBag();
+    const type = this.next.shift();
+    this.refillNext();
+    this.current = {
+      type: type,
+      shape: PIECES[type],
+      rot: 0,
+      x: Math.floor((COLS - PIECES[type][0].length) / 2),
+      y: 0
+    };
+    this.canHold = true;
+    this.onGround = false;
+    this.lockTimer = 0;
+    if (this.collides(this.current.x, this.current.y, this.current.rot)) {
+      this.gameOver = true;
+    }
+  }
+
+  getMatrix(piece, rot) {
+    return piece.shape[rot];
+  }
+
+  collides(x, y, rot) {
+    const m = this.getMatrix(this.current, rot);
+    for (let r = 0; r < m.length; r++) {
+      for (let c = 0; c < m[r].length; c++) {
+        if (m[r][c]) {
+          const nx = x + c, ny = y + r;
+          if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+          if (ny >= 0 && this.board[ny][nx]) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  move(dx) {
+    if (this.frozen) return;
+    if (this.reversed) dx = -dx;
+    if (!this.collides(this.current.x + dx, this.current.y, this.current.rot)) {
+      this.current.x += dx;
+      this.lockTimer = 0;
+    }
+  }
+
+  rotate(dir) {
+    if (this.frozen) return;
+    const oldRot = this.current.rot;
+    const newRot = (oldRot + dir + 4) % 4;
+    const kicks = KICKS[oldRot + '-' + newRot] || [[0,0]];
+    for (const [kx, ky] of kicks) {
+      if (!this.collides(this.current.x + kx, this.current.y - ky, newRot)) {
+        this.current.x += kx;
+        this.current.y -= ky;
+        this.current.rot = newRot;
+        this.lockTimer = 0;
+        return;
+      }
+    }
+  }
+
+  softDrop() {
+    if (this.frozen) return;
+    if (!this.collides(this.current.x, this.current.y + 1, this.current.rot)) {
+      this.current.y++;
+      this.score++;
+    }
+  }
+
+  hardDrop() {
+    if (this.frozen) return;
+    let dropped = 0;
+    while (!this.collides(this.current.x, this.current.y + 1, this.current.rot)) {
+      this.current.y++;
+      dropped++;
+    }
+    this.score += dropped * 2;
+    this.lock();
+  }
+
+  holdPiece() {
+    if (this.frozen) return;
+    if (!this.canHold) return;
+    const currentType = this.current.type;
+    if (this.hold === null) {
+      this.hold = currentType;
+      this.spawnPiece();
+    } else {
+      const oldHold = this.hold;
+      this.hold = currentType;
+      this.current = {
+        type: oldHold,
+        shape: PIECES[oldHold],
+        rot: 0,
+        x: Math.floor((COLS - PIECES[oldHold][0].length) / 2),
+        y: 0
+      };
+    }
+    this.canHold = false;
+  }
+
+  lock() {
+    const m = this.getMatrix(this.current, this.current.rot);
+    for (let r = 0; r < m.length; r++) {
+      for (let c = 0; c < m[r].length; c++) {
+        if (m[r][c]) {
+          const ny = this.current.y + r;
+          const nx = this.current.x + c;
+          if (ny >= 0 && ny < ROWS) this.board[ny][nx] = this.current.type;
+        }
+      }
+    }
+    this.clearLines();
+    this.processGarbage();
+    this.spawnPiece();
+  }
+
+  clearLines() {
+    let cleared = 0;
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (this.board[r].every(v => v !== 0)) {
+        this.board.splice(r, 1);
+        this.board.unshift(Array(COLS).fill(0));
+        cleared++;
+        r++;
+      }
+    }
+
+    if (cleared > 0) {
+      this.lines += cleared;
+      this.combo++;
+      const base = [0, 100, 300, 500, 800][cleared] || 0;
+      this.score += base * (1 + this.combo * 0.1);
+
+      // 공격 계산
+      let attack = ATTACK_TABLE[cleared] || 0;
+      attack += COMBO_BONUS[Math.min(this.combo, COMBO_BONUS.length - 1)];
+      if (cleared === 4) {
+        if (this.b2b) attack += 1;
+        this.b2b = true;
+      } else {
+        this.b2b = false;
+      }
+
+      // 방해 블록 상쇄
+      if (this.pendingGarbage > 0) {
+        const counter = Math.min(attack, this.pendingGarbage);
+        this.pendingGarbage -= counter;
+        attack -= counter;
+        updateGarbageBar();
+      }
+
+      if (attack > 0) {
+        sendMessage({ type: 'garbage', lines: attack });
+        showAttack(attack);
+      }
+
+      // 아이템 드랍 (줄 지우면 높은 확률)
+      // 1줄: 40%, 2줄: 70%, 3줄: 90%, 테트리스: 100% + 추가 기회
+      let itemChance = 0.25 + cleared * 0.2;
+      if (cleared === 4) {
+        this.grantItem();
+        itemChance = 0.6; // 테트리스면 2번째 아이템 60% 확률
+      }
+      if (Math.random() < itemChance) this.grantItem();
+
+      // 콤보 5 이상이면 보너스 아이템
+      if (this.combo >= 5 && Math.random() < 0.5) this.grantItem();
+
+      // 레벨업
+      const newLevel = Math.floor(this.lines / 10);
+      this.dropInterval = Math.max(100, 800 - newLevel * 60);
+
+    } else {
+      this.combo = 0;
+      // 줄을 못 지워도 8% 확률로 아이템 획득
+      if (Math.random() < 0.08) this.grantItem();
+    }
+  }
+
+  processGarbage() {
+    if (this.pendingGarbage <= 0) return;
+    if (this.shield) {
+      this.shield = false;
+      this.pendingGarbage = 0;
+      updateGarbageBar();
+      return;
+    }
+    const lines = Math.min(this.pendingGarbage, 8);
+    this.pendingGarbage -= lines;
+    const hole = Math.floor(Math.random() * COLS);
+    for (let i = 0; i < lines; i++) {
+      this.board.shift();
+      const row = Array(COLS).fill('G');
+      row[hole] = 0;
+      this.board.push(row);
+    }
+    updateGarbageBar();
+  }
+
+  grantItem() {
+    const slot = this.items.indexOf(null);
+    if (slot === -1) return;
+    const key = ITEM_KEYS[Math.floor(Math.random() * ITEM_KEYS.length)];
+    this.items[slot] = key;
+    updateItemSlots();
+  }
+
+  useItem(slot) {
+    if (this.gameOver || this.frozen) return;
+    const itemKey = this.items[slot];
+    if (!itemKey) return;
+    this.items[slot] = null;
+    updateItemSlots();
+
+    switch (itemKey) {
+      case 'SHIELD':
+        this.shield = true;
+        break;
+      case 'CLEAR':
+        this.board.pop(); this.board.pop();
+        this.board.unshift(Array(COLS).fill(0));
+        this.board.unshift(Array(COLS).fill(0));
+        break;
+      case 'BOMB':
+        sendMessage({ type: 'garbage', lines: 4 });
+        sendMessage({ type: 'item', item: 'BOMB_NOTIFY' });
+        break;
+      case 'BLIND':
+        sendMessage({ type: 'item', item: 'BLIND' });
+        break;
+      case 'REVERSE':
+        sendMessage({ type: 'item', item: 'REVERSE' });
+        break;
+      case 'FREEZE':
+        sendMessage({ type: 'item', item: 'FREEZE' });
+        break;
+    }
+  }
+
+  getGhostY() {
+    let y = this.current.y;
+    while (!this.collides(this.current.x, y + 1, this.current.rot)) y++;
+    return y;
+  }
+
+  update(dt) {
+    if (this.gameOver) return;
+
+    const now = Date.now();
+    if (this.reversed && now > this.reversedUntil) this.reversed = false;
+    if (this.frozen && now > this.frozenUntil) this.frozen = false;
+    if (this.blinded && now > this.blindedUntil) this.blinded = false;
+
+    if (this.frozen) return;
+
+    this.dropTimer += dt;
+    if (this.dropTimer >= this.dropInterval) {
+      this.dropTimer = 0;
+      if (!this.collides(this.current.x, this.current.y + 1, this.current.rot)) {
+        this.current.y++;
+        this.onGround = false;
+      } else {
+        this.onGround = true;
+      }
+    }
+
+    if (this.onGround) {
+      this.lockTimer += dt;
+      if (this.lockTimer >= this.lockDelay) {
+        this.lock();
+      }
+    }
+
+    // 주기적으로 상태 전송 (초당 약 20회)
+    if (now - this.lastState > 50) {
+      this.lastState = now;
+      sendMessage({
+        type: 'state',
+        state: {
+          board: this.board,
+          current: this.current,
+          next: this.next[0],
+          hold: this.hold,
+          score: this.score,
+          lines: this.lines,
+          combo: this.combo,
+          pending: this.pendingGarbage,
+          blinded: this.blinded
+        }
+      });
+    }
+  }
+}
+
+// ============================================================
+// 게임 시작
+// ============================================================
+function startGame(seed) {
+  if (gameStarted) return;
+  gameStarted = true;
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  myGame = new TetrisGame(seed);
+  lastFrame = performance.now();
+  requestAnimationFrame(loop);
+}
+
+let lastFrame = 0;
+let gameoverSent = false;
+function loop(now) {
+  const dt = now - lastFrame;
+  lastFrame = now;
+
+  if (myGame && !myGame.gameOver) {
+    myGame.update(dt);
+    drawBoard(myGame);
+    drawHold(myGame);
+    drawNext(myGame);
+    updateStats();
+    gameoverSent = false;
+
+    if (myGame.gameOver && !gameoverSent) {
+      gameoverSent = true;
+      sendMessage({ type: 'gameover' });
+      endGame(false);
+    }
+  } else if (myGame && myGame.gameOver && !gameoverSent) {
+    gameoverSent = true;
+    sendMessage({ type: 'gameover' });
+    endGame(false);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ============================================================
+// 렌더링
+// ============================================================
+function drawCell(ctx, x, y, type, size, alpha = 1) {
+  const color = COLORS[type] || COLORS[0];
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.fillRect(x * size, y * size, size, size);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x * size + 0.5, y * size + 0.5, size - 1, size - 1);
+  // 하이라이트
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.fillRect(x * size + 2, y * size + 2, size - 4, 3);
+  ctx.globalAlpha = 1;
+}
+
+function drawBoard(game) {
+  const ctx = document.getElementById('myBoard').getContext('2d');
+  ctx.fillStyle = '#05070f';
+  ctx.fillRect(0, 0, COLS * CELL, ROWS * CELL);
+
+  // 그리드
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  for (let c = 1; c < COLS; c++) {
+    ctx.beginPath();
+    ctx.moveTo(c * CELL, 0);
+    ctx.lineTo(c * CELL, ROWS * CELL);
+    ctx.stroke();
+  }
+  for (let r = 1; r < ROWS; r++) {
+    ctx.beginPath();
+    ctx.moveTo(0, r * CELL);
+    ctx.lineTo(COLS * CELL, r * CELL);
+    ctx.stroke();
+  }
+
+  // 보드
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (game.board[r][c]) drawCell(ctx, c, r, game.board[r][c], CELL);
+    }
+  }
+
+  // 고스트
+  if (game.current && !game.gameOver) {
+    const ghostY = game.getGhostY();
+    const m = game.current.shape[game.current.rot];
+    for (let r = 0; r < m.length; r++) {
+      for (let c = 0; c < m[r].length; c++) {
+        if (m[r][c]) {
+          drawCell(ctx, game.current.x + c, ghostY + r, game.current.type, CELL, 0.25);
+        }
+      }
+    }
+
+    // 현재 블록
+    for (let r = 0; r < m.length; r++) {
+      for (let c = 0; c < m[r].length; c++) {
+        if (m[r][c]) {
+          drawCell(ctx, game.current.x + c, game.current.y + r, game.current.type, CELL);
+        }
+      }
+    }
+  }
+
+  // 효과 표시
+  if (game.reversed) {
+    ctx.fillStyle = 'rgba(255,107,157,0.15)';
+    ctx.fillRect(0, 0, COLS * CELL, ROWS * CELL);
+    drawText(ctx, '조작 반전!', COLS * CELL / 2, 30, '#ff6b9d');
+  }
+  if (game.frozen) {
+    ctx.fillStyle = 'rgba(0,212,255,0.2)';
+    ctx.fillRect(0, 0, COLS * CELL, ROWS * CELL);
+    drawText(ctx, '얼음!', COLS * CELL / 2, 30, '#00d4ff');
+  }
+  if (game.shield) {
+    ctx.strokeStyle = '#5dcaa5';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(1, 1, COLS * CELL - 2, ROWS * CELL - 2);
+  }
+}
+
+function drawText(ctx, text, x, y, color) {
+  ctx.font = 'bold 20px Segoe UI';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 3;
+  ctx.strokeText(text, x, y);
+  ctx.fillText(text, x, y);
+}
+
+function drawPieceOnCanvas(ctx, type, canvasSize) {
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, 0, canvasSize, canvasSize);
+  if (!type) return;
+  const m = PIECES[type][0];
+  const cellSize = 16;
+  const w = m[0].length * cellSize;
+  const h = m.length * cellSize;
+  const ox = (canvasSize - w) / 2;
+  const oy = (canvasSize - h) / 2;
+  for (let r = 0; r < m.length; r++) {
+    for (let c = 0; c < m[r].length; c++) {
+      if (m[r][c]) {
+        ctx.fillStyle = COLORS[type];
+        ctx.fillRect(ox + c * cellSize, oy + r * cellSize, cellSize, cellSize);
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.strokeRect(ox + c * cellSize + 0.5, oy + r * cellSize + 0.5, cellSize - 1, cellSize - 1);
+      }
+    }
+  }
+}
+
+function drawHold(game) {
+  const ctx = document.getElementById('myHold').getContext('2d');
+  drawPieceOnCanvas(ctx, game.hold, 80);
+}
+
+function drawNext(game) {
+  const ctx = document.getElementById('myNext').getContext('2d');
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, 0, 80, 240);
+  for (let i = 0; i < Math.min(3, game.next.length); i++) {
+    const type = game.next[i];
+    const m = PIECES[type][0];
+    const cellSize = 14;
+    const w = m[0].length * cellSize;
+    const h = m.length * cellSize;
+    const ox = (80 - w) / 2;
+    const oy = i * 78 + (78 - h) / 2;
+    for (let r = 0; r < m.length; r++) {
+      for (let c = 0; c < m[r].length; c++) {
+        if (m[r][c]) {
+          ctx.fillStyle = COLORS[type];
+          ctx.fillRect(ox + c * cellSize, oy + r * cellSize, cellSize, cellSize);
+          ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+          ctx.strokeRect(ox + c * cellSize + 0.5, oy + r * cellSize + 0.5, cellSize - 1, cellSize - 1);
+        }
+      }
+    }
+  }
+}
+
+function drawOpponent() {
+  if (!oppState) return;
+  const ctx = document.getElementById('oppBoard').getContext('2d');
+  ctx.fillStyle = '#05070f';
+  ctx.fillRect(0, 0, COLS * OPP_CELL, ROWS * OPP_CELL);
+
+  if (oppState.blinded) {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, COLS * OPP_CELL, ROWS * OPP_CELL);
+    drawText(ctx, '블라인드!', COLS * OPP_CELL / 2, ROWS * OPP_CELL / 2, '#888');
+  } else {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (oppState.board[r][c]) drawCell(ctx, c, r, oppState.board[r][c], OPP_CELL);
+      }
+    }
+    // 현재 블록
+    if (oppState.current) {
+      const m = PIECES[oppState.current.type][oppState.current.rot];
+      for (let r = 0; r < m.length; r++) {
+        for (let c = 0; c < m[r].length; c++) {
+          if (m[r][c]) {
+            drawCell(ctx, oppState.current.x + c, oppState.current.y + r, oppState.current.type, OPP_CELL);
+          }
+        }
+      }
+    }
+  }
+
+  // 상대 hold/next
+  drawPieceOnCanvas(document.getElementById('oppHold').getContext('2d'), oppState.hold, 80);
+  const nextCtx = document.getElementById('oppNext').getContext('2d');
+  nextCtx.fillStyle = '#0a0e1a';
+  nextCtx.fillRect(0, 0, 80, 240);
+  if (oppState.next) drawPieceOnCanvas(nextCtx, oppState.next, 80);
+
+  document.getElementById('oppScore').textContent = oppState.score;
+  document.getElementById('oppLines').textContent = oppState.lines;
+  document.getElementById('oppCombo').textContent = oppState.combo;
+  document.getElementById('oppGarbageFill').style.height = Math.min(100, oppState.pending * 5) + '%';
+}
+
+function updateStats() {
+  document.getElementById('myScore').textContent = Math.floor(myGame.score);
+  document.getElementById('myLines').textContent = myGame.lines;
+  document.getElementById('myCombo').textContent = myGame.combo;
+}
+
+function updateGarbageBar() {
+  const el = document.getElementById('myGarbageFill');
+  el.style.height = Math.min(100, myGame.pendingGarbage * 5) + '%';
+}
+
+function updateItemSlots() {
+  for (let i = 0; i < 3; i++) {
+    const el = document.getElementById('mySlot' + i);
+    const key = myGame.items[i];
+    if (key) {
+      el.textContent = ITEMS[key].icon;
+      el.className = 'item-slot active';
+      el.title = ITEMS[key].name + ' - ' + ITEMS[key].desc;
+    } else {
+      el.textContent = '';
+      el.className = 'item-slot empty';
+      el.title = '';
+    }
+  }
+}
+
+function useItem(slot) {
+  if (myGame) myGame.useItem(slot);
+}
+
+function showAttack(n) {
+  const el = document.getElementById('myBoard');
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 300);
+}
+
+function applyIncomingItem(item) {
+  const now = Date.now();
+  if (item === 'BLIND') {
+    myGame.blinded = true;
+    myGame.blindedUntil = now + 5000;
+  } else if (item === 'REVERSE') {
+    myGame.reversed = true;
+    myGame.reversedUntil = now + 3000;
+  } else if (item === 'FREEZE') {
+    myGame.frozen = true;
+    myGame.frozenUntil = now + 2000;
+  }
+}
+
+function endGame(won) {
+  if (!myGame) return;
+  myGame.gameOver = true;
+
+  // 전적 업데이트
+  if (won) wins++;
+  else losses++;
+
+  const overlay = document.getElementById('gameover-overlay');
+  const text = document.getElementById('gameoverText');
+  text.textContent = (won ? '승리! 🎉' : '패배...') + `  (${wins}승 ${losses}패)`;
+  text.className = won ? 'win' : 'lose';
+
+  // 재경기 상태 초기화
+  myWantsRematch = false;
+  opponentWantsRematch = false;
+  document.getElementById('rematchStatus').textContent = '';
+  const btn = document.getElementById('rematchBtn');
+  btn.disabled = false;
+  btn.textContent = '🔄 재경기';
+
+  overlay.style.display = 'flex';
+}
+
+function requestRematch() {
+  if (myWantsRematch) return;
+  myWantsRematch = true;
+  sendMessage({ type: 'rematch_request' });
+  const btn = document.getElementById('rematchBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 대기 중...';
+  document.getElementById('rematchStatus').textContent = '상대의 수락을 기다리는 중...';
+  checkRematchReady();
+}
+
+function checkRematchReady() {
+  if (myWantsRematch && opponentWantsRematch) {
+    // 양쪽 다 준비됨
+    document.getElementById('rematchStatus').textContent = '재경기 시작!';
+    if (isHost) {
+      // 호스트가 새 시드 생성해서 전송
+      const seed = Math.floor(Math.random() * 1000000);
+      sendMessage({ type: 'rematch_start', seed: seed });
+      setTimeout(() => restartGame(seed), 500);
+    }
+    // 비호스트는 rematch_start 메시지를 받아서 재시작
+  } else if (opponentWantsRematch && !myWantsRematch) {
+    document.getElementById('rematchStatus').textContent = '💬 상대가 재경기를 원합니다!';
+  }
+}
+
+function restartGame(seed) {
+  document.getElementById('gameover-overlay').style.display = 'none';
+  myGame = new TetrisGame(seed);
+  oppState = null;
+  gameoverSent = false;
+  lastFrame = performance.now();
+  // 기존 루프가 계속 돌고 있으므로 새로 시작할 필요 없음
+  // gameOver가 false인 새 게임이 생겼으니 루프가 이어서 처리함
+}
+
+// ============================================================
+// 키 입력
+// ============================================================
+const keyState = {};
+const keyRepeat = { left: 0, right: 0, down: 0 };
+const DAS = 170; // Delayed Auto Shift
+const ARR = 40;  // Auto Repeat Rate
+
+document.addEventListener('keydown', e => {
+  if (!myGame || myGame.gameOver) return;
+  if (keyState[e.code]) return;
+  keyState[e.code] = true;
+
+  switch (e.code) {
+    case 'ArrowLeft': myGame.move(-1); keyRepeat.left = Date.now() + DAS; break;
+    case 'ArrowRight': myGame.move(1); keyRepeat.right = Date.now() + DAS; break;
+    case 'ArrowDown': myGame.softDrop(); keyRepeat.down = Date.now() + 50; break;
+    case 'ArrowUp':
+    case 'KeyX': myGame.rotate(1); break;
+    case 'KeyZ': myGame.rotate(-1); break;
+    case 'Space': e.preventDefault(); myGame.hardDrop(); break;
+    case 'KeyC': myGame.holdPiece(); break;
+    case 'Digit1': myGame.useItem(0); break;
+    case 'Digit2': myGame.useItem(1); break;
+    case 'Digit3': myGame.useItem(2); break;
+  }
+});
+
+document.addEventListener('keyup', e => {
+  keyState[e.code] = false;
+});
+
+// DAS/ARR 처리
+setInterval(() => {
+  if (!myGame || myGame.gameOver) return;
+  const now = Date.now();
+  if (keyState['ArrowLeft'] && now >= keyRepeat.left) {
+    myGame.move(-1);
+    keyRepeat.left = now + ARR;
+  }
+  if (keyState['ArrowRight'] && now >= keyRepeat.right) {
+    myGame.move(1);
+    keyRepeat.right = now + ARR;
+  }
+  if (keyState['ArrowDown'] && now >= keyRepeat.down) {
+    myGame.softDrop();
+    keyRepeat.down = now + 30;
+  }
+}, 16);
+
+// 시작
+initPeer();
+</script>
+
+</body>
+</html>
