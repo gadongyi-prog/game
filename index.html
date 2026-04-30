@@ -173,6 +173,18 @@
   .card-2 { --card-glow: linear-gradient(135deg, #f5576c, #f093fb); --icon-bg: linear-gradient(135deg, #f5576c, #f093fb); }
   .card-3 { --card-glow: linear-gradient(135deg, #ff2a6d, #05d9e8); --icon-bg: linear-gradient(135deg, #ff2a6d, #05d9e8); }
   .card-4 { --card-glow: linear-gradient(135deg, #fee140, #fa709a); --icon-bg: linear-gradient(135deg, #fee140, #fa709a); }
+  .card-5 { --card-glow: linear-gradient(135deg, #00ffcc, #b388ff); --icon-bg: linear-gradient(135deg, #00ffcc, #b388ff); }
+
+  .card .extra-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px dashed rgba(255,255,255,0.18);
+    padding-bottom: 1px;
+  }
+  .card .extra-link:hover { color: var(--text); border-bottom-color: rgba(255,255,255,0.4); }
 
   footer {
     text-align: center;
@@ -197,7 +209,7 @@
     <header>
       <div class="badge">멀티플레이 · P2P</div>
       <h1>미니게임 아케이드</h1>
-      <p class="subtitle">친구와 함께 즐기는 4가지 멀티플레이 미니게임. 카드를 클릭해서 시작하세요.</p>
+      <p class="subtitle">친구와 함께 즐기는 5가지 멀티플레이 미니게임. 카드를 클릭해서 시작하세요.</p>
     </header>
 
     <div class="grid">
@@ -231,6 +243,15 @@
         <div class="tag">Up to 8 Players</div>
         <p>그림을 그리고 단어를 맞히는 최대 8인 멀티 그림 퀴즈.</p>
         <span class="play">플레이 <span class="arrow">→</span></span>
+      </a>
+
+      <a class="card card-5" href="portal_math_td.html">
+        <div class="icon">🌀</div>
+        <h2>Portal Math TD</h2>
+        <div class="tag">1v1 / vs AI</div>
+        <p>몹이 포털을 통과하면 +1·×5 같은 연산이 적용되어 군집이 폭발적으로 증식하는 3라인 타워 디펜스. 본진 궁수와 돌굴리기 스킬, 타워 재건까지.</p>
+        <span class="play">플레이 <span class="arrow">→</span></span>
+        <a class="extra-link" href="portal_math_sim.html" onclick="event.stopPropagation();">+ AI vs AI 시뮬레이터</a>
       </a>
     </div>
 

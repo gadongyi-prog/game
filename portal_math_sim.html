@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PORTAL MATH — AI vs AI 시뮬레이터</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #111829;
+    --panel: #1a2238;
+    --border: #2a3550;
+    --text: #e0e4f0;
+    --muted: #7a8299;
+    --accent: #00ffcc;
+    --player: #4db8ff;
+    --enemy: #ff5577;
+    --success: #00ff88;
+    --danger: #ff3355;
+    --warn: #ffcc44;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(0,255,204,0.4);
+    margin-bottom: 6px;
+  }
+  .sub { font-size: 11px; color: var(--muted); letter-spacing: 1px; margin-bottom: 20px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .panel h2 {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .strat-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .strat-row {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--muted);
+    border-radius: 3px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    transition: border-color 0.1s;
+  }
+  .strat-row:hover { border-color: var(--accent); }
+  .strat-row input[type="checkbox"] { margin-top: 3px; accent-color: var(--accent); }
+  .strat-row .nm { font-size: 12px; font-weight: 700; color: var(--text); }
+  .strat-row .ds { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+
+  .form-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: end; margin-bottom: 10px; }
+  .form-row label { display: flex; flex-direction: column; gap: 4px; font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+  .form-row input {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 3px;
+    width: 100px;
+  }
+  .form-row input:focus { outline: none; border-color: var(--accent); }
+
+  button {
+    background: var(--accent);
+    color: var(--bg);
+    border: 0;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 10px 20px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.1s;
+  }
+  button:hover { background: #00ccaa; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .progress-bar {
+    height: 20px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--player));
+    transition: width 0.1s;
+    width: 0%;
+  }
+  .progress-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--text);
+    letter-spacing: 1px;
+    font-weight: 700;
+  }
+
+  .result-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .result-table th, .result-table td {
+    border: 1px solid var(--border);
+    padding: 8px 6px;
+    text-align: center;
+    min-width: 70px;
+  }
+  .result-table th {
+    background: var(--bg2);
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .result-table th.row-hdr {
+    background: var(--bg2);
+    text-align: right;
+    padding-right: 10px;
+  }
+  .result-table td.diag { background: var(--bg); color: var(--muted); }
+  .result-table td .pct {
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .result-table td .raw {
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .result-table td.win-hi { background: rgba(0, 255, 136, 0.15); }
+  .result-table td.win-md { background: rgba(0, 255, 136, 0.05); }
+  .result-table td.lose-hi { background: rgba(255, 51, 85, 0.18); }
+  .result-table td.lose-md { background: rgba(255, 51, 85, 0.07); }
+
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .summary-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 10px 12px;
+    border-radius: 3px;
+  }
+  .summary-card .nm { font-size: 11px; font-weight: 700; color: var(--text); }
+  .summary-card .rate {
+    font-size: 22px;
+    color: var(--accent);
+    font-weight: 800;
+    margin: 6px 0 4px;
+  }
+  .summary-card .rate.low { color: var(--danger); }
+  .summary-card .rate.mid { color: var(--warn); }
+  .summary-card .det { font-size: 10px; color: var(--muted); line-height: 1.4; }
+
+  .log {
+    max-height: 220px;
+    overflow-y: auto;
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 8px;
+    border-radius: 3px;
+    line-height: 1.5;
+    font-family: monospace;
+    white-space: pre-wrap;
+  }
+
+  .btn-row { display: flex; gap: 10px; align-items: center; }
+  .btn-row .sec {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-row .sec:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+  .muted { color: var(--muted); font-size: 10px; }
+  .hidden { display: none; }
+
+  @media (max-width: 720px) {
+    .strat-list { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PORTAL MATH · AI SIMULATOR</h1>
+  <div class="sub">헤드리스 시뮬레이션으로 전략 간 승률 매트릭스를 구합니다</div>
+
+  <div class="panel">
+    <h2>◆ 전략 선택 (2개 이상)</h2>
+    <div class="strat-list" id="stratList"></div>
+  </div>
+
+  <div class="panel">
+    <h2>◆ 실행 설정</h2>
+    <div class="form-row">
+      <label>대결 당 게임 수<input id="gamesPerPair" type="number" min="1" max="500" value="30"></label>
+      <label>최대 프레임<input id="maxFrames" type="number" min="600" max="36000" value="10800"></label>
+      <label>시드<input id="baseSeed" type="number" value="1"></label>
+      <label>병렬 틱 수<input id="tickChunk" type="number" min="1" max="500" value="60"></label>
+    </div>
+    <div class="muted">10800 프레임 ≈ 3분(60fps 기준). 시드가 같으면 결과 재현 가능. 교착 방지를 위해 180초 이상 권장.</div>
+    <div style="margin-top:14px" class="btn-row">
+      <button id="runBtn">배치 실행</button>
+      <button id="stopBtn" class="sec" disabled>중단</button>
+      <span class="muted" id="statusLabel"></span>
+    </div>
+  </div>
+
+  <div class="panel hidden" id="progressPanel">
+    <h2>◇ 진행</h2>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div><div class="progress-label" id="progressLabel">0 / 0</div></div>
+    <div class="muted" style="margin-top:8px" id="progressText"></div>
+  </div>
+
+  <div class="panel hidden" id="resultPanel">
+    <h2>◇ 승률 매트릭스 (행 = 플레이어 측, 열 = 상대)</h2>
+    <div id="resultTable"></div>
+    <div class="summary" id="summary"></div>
+  </div>
+
+  <div class="panel hidden" id="logPanel">
+    <h2>◇ 실행 로그</h2>
+    <div class="log" id="logBox"></div>
+  </div>
+</div>
+
+<script>
+// =============================================================
+// 시드 가능 RNG (mulberry32)
+// =============================================================
+function mulberry32(seed) {
+  let s = seed | 0;
+  return function() {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// =============================================================
+// 게임 상수 (원본 게임과 동일)
+// =============================================================
+const CONFIG = {
+  canvasW: 1160,
+  canvasH: 540,
+  lanes: [130, 270, 410],
+  mobSize: 12,
+  mobSpeed: 0.6,
+  baseSpawnInterval: 120,
+  startingHp: 100,
+  startingGold: 150,
+  goldPerFrame: 0.1,
+  goldPerKill: 2,
+  mobDamage: 1,
+  towerRange: 120,
+  portalCooldown: 90,
+  maxMobs: 400,
+  buildPortalCost: 50,
+  buildTowerCost: 80,
+  mobHpMaxLevel: 5,
+  mobHpBaseCost: 250,
+  mobHpCostMult: 2.0,
+  towerLevels: [
+    { hp: 100, damage: 3, range: 120, fireRate: 15, upgradeCost: 70 },
+    { hp: 150, damage: 4, range: 140, fireRate: 13, upgradeCost: 140 },
+    { hp: 220, damage: 5, range: 160, fireRate: 11, upgradeCost: 260 },
+    { hp: 320, damage: 7, range: 185, fireRate: 9,  upgradeCost: 0 },
+  ],
+  baseArrowSpeed: 8,
+  baseArrowDamage: 2,
+  baseArrowCooldown: 4,
+};
+
+const LAYOUT = {
+  playerBaseX: 60,
+  enemyBaseX: 1100,
+  p1: 160, t1: 240, p2: 320, t2: 400, p3: 480,
+  e3: 680, et2: 760, e2: 840, et1: 920, e1: 1000,
+};
+
+const OPERATORS = {
+  '+1': { fn: n => n + 1, upgradeCost: 30 },
+  '+2': { fn: n => n + 2, upgradeCost: 40 },
+  '+3': { fn: n => n + 3, upgradeCost: 60 },
+  '×2': { fn: n => n * 2, upgradeCost: 90 },
+  '×3': { fn: n => n * 3, upgradeCost: 150 },
+  '×4': { fn: n => n * 4, upgradeCost: 240 },
+  '×5': { fn: n => n * 5, upgradeCost: 0 },
+};
+const OP_LIST = Object.keys(OPERATORS);
+const LANE_SUFFIX = ['u', '', 'd'];
+
+// =============================================================
+// HeadlessGame — 렌더/DOM 없이 순수 시뮬레이션
+// =============================================================
+class HeadlessGame {
+  constructor(seed, stratP, stratE) {
+    this.rng = mulberry32(seed);
+    this.stratP = stratP;
+    this.stratE = stratE;
+
+    this.frame = 0;
+    this.playerHp = CONFIG.startingHp;
+    this.enemyHp = CONFIG.startingHp;
+    this.playerGold = CONFIG.startingGold;
+    this.enemyGold = CONFIG.startingGold;
+    this.playerMobHpLevel = 0;
+    this.enemyMobHpLevel = 0;
+
+    this.mobs = [];
+    this.baseArrows = [];
+    this.rocks = [];
+
+    this.portals = {};
+    this.towers = {};
+    this.initSlots();
+
+    this.playerSpawnTimer = 0;
+    this.enemySpawnTimer = 0;
+    this.playerAiTimer = 0;
+    this.enemyAiTimer = 0;
+    this.playerArrowTimer = 0;
+    this.enemyArrowTimer = 0;
+    this.playerFireCd = [0, 0, 0];
+    this.enemyFireCd = [0, 0, 0];
+    this.arrowCount = { player: [0, 0, 0], enemy: [0, 0, 0] };
+
+    this.winner = null; // 'player' | 'enemy' | null
+  }
+
+  initSlots() {
+    for (let laneIdx = 0; laneIdx < 3; laneIdx++) {
+      const sfx = LANE_SUFFIX[laneIdx];
+      const isMid = laneIdx === 1;
+      [['p1', LAYOUT.p1], ['p2', LAYOUT.p2], ['p3', LAYOUT.p3]].forEach(([b, x]) => {
+        this.portals[b + sfx] = { owner: 'player', lane: laneIdx, x, op: '+1', cooldown: 0, built: isMid };
+      });
+      [['e1', LAYOUT.e1], ['e2', LAYOUT.e2], ['e3', LAYOUT.e3]].forEach(([b, x]) => {
+        this.portals[b + sfx] = { owner: 'enemy', lane: laneIdx, x, op: '+1', cooldown: 0, built: isMid };
+      });
+      [['t1', LAYOUT.t1], ['t2', LAYOUT.t2]].forEach(([b, x]) => {
+        const hp = CONFIG.towerLevels[0].hp;
+        this.towers[b + sfx] = { owner: 'player', lane: laneIdx, x, level: 0, hp, maxHp: hp, fireTimer: 0, built: isMid };
+      });
+      [['et1', LAYOUT.et1], ['et2', LAYOUT.et2]].forEach(([b, x]) => {
+        const hp = CONFIG.towerLevels[0].hp;
+        this.towers[b + sfx] = { owner: 'enemy', lane: laneIdx, x, level: 0, hp, maxHp: hp, fireTimer: 0, built: isMid };
+      });
+    }
+  }
+
+  getMobHp(side) {
+    return 1 + (side === 'player' ? this.playerMobHpLevel : this.enemyMobHpLevel);
+  }
+  getMobHpCost(side) {
+    const lvl = side === 'player' ? this.playerMobHpLevel : this.enemyMobHpLevel;
+    return Math.floor(CONFIG.mobHpBaseCost * Math.pow(CONFIG.mobHpCostMult, lvl));
+  }
+  goldOf(side) { return side === 'player' ? this.playerGold : this.enemyGold; }
+  setGold(side, v) { if (side === 'player') this.playerGold = v; else this.enemyGold = v; }
+
+  // --- Action methods ---
+  build(id) {
+    const isPortal = id.startsWith('p') || (id.startsWith('e') && !id.startsWith('et'));
+    const isTower = id.startsWith('t') || id.startsWith('et');
+    if (!isPortal && !isTower) return false;
+    const obj = isPortal ? this.portals[id] : this.towers[id];
+    if (!obj || obj.built) return false;
+    const cost = isPortal ? CONFIG.buildPortalCost : CONFIG.buildTowerCost;
+    if (this.goldOf(obj.owner) < cost) return false;
+    this.setGold(obj.owner, this.goldOf(obj.owner) - cost);
+    obj.built = true;
+    if (isTower) {
+      obj.level = 0;
+      obj.hp = CONFIG.towerLevels[0].hp;
+      obj.maxHp = obj.hp;
+      obj.fireTimer = 0;
+    }
+    return true;
+  }
+
+  upgradePortal(id) {
+    const p = this.portals[id];
+    if (!p || !p.built) return false;
+    if (p.cooldown > 0) return false;
+    const idx = OP_LIST.indexOf(p.op);
+    if (idx >= OP_LIST.length - 1) return false;
+    const cost = OPERATORS[p.op].upgradeCost;
+    if (this.goldOf(p.owner) < cost) return false;
+    this.setGold(p.owner, this.goldOf(p.owner) - cost);
+    p.op = OP_LIST[idx + 1];
+    p.cooldown = CONFIG.portalCooldown;
+    return true;
+  }
+
+  upgradeTower(id) {
+    const t = this.towers[id];
+    if (!t || !t.built || t.hp <= 0) return false;
+    const maxLv = CONFIG.towerLevels.length - 1;
+    const cur = t.level || 0;
+    if (cur >= maxLv) return false;
+    const cost = CONFIG.towerLevels[cur].upgradeCost;
+    if (this.goldOf(t.owner) < cost) return false;
+    this.setGold(t.owner, this.goldOf(t.owner) - cost);
+    t.level = cur + 1;
+    const nxt = CONFIG.towerLevels[t.level];
+    t.maxHp = nxt.hp;
+    t.hp = nxt.hp;
+    return true;
+  }
+
+  upgradeMobHp(side) {
+    const lvl = side === 'player' ? this.playerMobHpLevel : this.enemyMobHpLevel;
+    if (lvl >= CONFIG.mobHpMaxLevel) return false;
+    const cost = this.getMobHpCost(side);
+    if (this.goldOf(side) < cost) return false;
+    this.setGold(side, this.goldOf(side) - cost);
+    if (side === 'player') this.playerMobHpLevel++;
+    else this.enemyMobHpLevel++;
+    return true;
+  }
+
+  fireBaseArrow(side, lane) {
+    if (lane < 0 || lane > 2) return;
+    const cdArr = side === 'player' ? this.playerFireCd : this.enemyFireCd;
+    if (cdArr[lane] > 0) return;
+    cdArr[lane] = CONFIG.baseArrowCooldown;
+    const baseX = side === 'player' ? LAYOUT.playerBaseX : LAYOUT.enemyBaseX;
+    const dir = side === 'player' ? 1 : -1;
+    this.baseArrows.push({
+      x: baseX + dir * 30,
+      lane,
+      owner: side,
+      vx: dir * CONFIG.baseArrowSpeed,
+      damage: CONFIG.baseArrowDamage,
+      life: 200,
+    });
+    this.arrowCount[side][lane]++;
+    if (this.arrowCount[side][lane] >= 100) {
+      this.arrowCount[side][lane] = 0;
+      this.rocks.push({
+        x: baseX + dir * 42,
+        lane,
+        owner: side,
+        vx: dir * 5,
+        size: 22,
+        life: 400,
+      });
+    }
+  }
+
+  // --- Update methods ---
+  spawn(side) {
+    const baseX = side === 'player' ? LAYOUT.playerBaseX : LAYOUT.enemyBaseX;
+    const x = baseX + (side === 'player' ? 35 : -35);
+    const dir = side === 'player' ? 1 : -1;
+    const maxHp = this.getMobHp(side);
+    for (let laneIdx = 0; laneIdx < 3; laneIdx++) {
+      this.mobs.push({
+        owner: side,
+        x: x + (this.rng() - 0.5) * 6,
+        lane: laneIdx,
+        dir,
+        hp: maxHp,
+        maxHp,
+        stamp: {},
+        speed: CONFIG.mobSpeed + (this.rng() - 0.5) * 0.1,
+        _dying: false, _dead: false, _corpseFrames: 0,
+      });
+    }
+  }
+
+  updateMobs() {
+    const portalOrder = {
+      player: ['p1', 'p2', 'p3'],
+      enemy: ['e1', 'e2', 'e3'],
+    };
+    const newMobs = [];
+    const processed = new Set();
+
+    for (let i = 0; i < this.mobs.length; i++) {
+      if (processed.has(i)) continue;
+      const mob = this.mobs[i];
+      if (mob._dying) continue;
+
+      mob.x += mob.speed * mob.dir;
+
+      // 포털 통과
+      const order = portalOrder[mob.owner];
+      let triggered = null;
+      for (const base of order) {
+        const pid = base + LANE_SUFFIX[mob.lane];
+        const p = this.portals[pid];
+        if (!p || !p.built) continue;
+        if (!mob.stamp[pid] && Math.abs(mob.x - p.x) < 3) {
+          mob.stamp[pid] = true;
+          triggered = { pid, p };
+          break;
+        }
+      }
+
+      if (triggered) {
+        const { pid, p } = triggered;
+        const op = OPERATORS[p.op];
+        const group = [];
+        for (let j = 0; j < this.mobs.length; j++) {
+          if (processed.has(j)) continue;
+          const m = this.mobs[j];
+          if (m._dying || m._dead) continue;
+          if (m.owner !== mob.owner || m.lane !== mob.lane) continue;
+          const near = Math.abs(m.x - p.x) < 6;
+          if (j === i || (near && !m.stamp[pid])) {
+            group.push(j);
+            if (j !== i) m.stamp[pid] = true;
+          }
+        }
+        const groupSize = group.length;
+        const newSize = Math.max(0, Math.floor(op.fn(groupSize)));
+        const delta = newSize - groupSize;
+        if (delta > 0) {
+          for (let k = 0; k < delta; k++) {
+            newMobs.push({
+              owner: mob.owner,
+              x: p.x + (this.rng() - 0.5) * 8,
+              lane: mob.lane,
+              dir: mob.dir,
+              hp: mob.maxHp,
+              maxHp: mob.maxHp,
+              stamp: { ...mob.stamp },
+              speed: CONFIG.mobSpeed + (this.rng() - 0.5) * 0.1,
+              _dying: false, _dead: false, _corpseFrames: 0,
+            });
+          }
+        } else if (delta < 0) {
+          const victims = group.slice(0, -delta);
+          victims.forEach(v => processed.add(v));
+        }
+      }
+
+      // 본진 도달
+      if (mob.owner === 'player' && mob.x >= LAYOUT.enemyBaseX - 35) {
+        this.enemyHp -= CONFIG.mobDamage;
+        processed.add(i);
+      } else if (mob.owner === 'enemy' && mob.x <= LAYOUT.playerBaseX + 35) {
+        this.playerHp -= CONFIG.mobDamage;
+        processed.add(i);
+      }
+    }
+
+    this.mobs = this.mobs.filter((_, i) => !processed.has(i)).concat(newMobs);
+    if (this.mobs.length > CONFIG.maxMobs) this.mobs = this.mobs.slice(0, CONFIG.maxMobs);
+
+    if (this.playerHp <= 0) this.winner = 'enemy';
+    if (this.enemyHp <= 0) this.winner = 'player';
+  }
+
+  updateMobCollisions() {
+    const CD = CONFIG.mobSize + 4;
+    for (let laneIdx = 0; laneIdx < 3; laneIdx++) {
+      const ps = [], es = [];
+      this.mobs.forEach((m, i) => {
+        if (m._dead || m._dying || m.lane !== laneIdx) return;
+        (m.owner === 'player' ? ps : es).push(i);
+      });
+      ps.sort((a, b) => this.mobs[b].x - this.mobs[a].x);
+      es.sort((a, b) => this.mobs[a].x - this.mobs[b].x);
+      const engaged = new Set();
+      for (const pi of ps) {
+        if (engaged.has(pi)) continue;
+        const pm = this.mobs[pi];
+        if (pm._dying) continue;
+        for (const ei of es) {
+          if (engaged.has(ei)) continue;
+          const em = this.mobs[ei];
+          if (em._dying) continue;
+          if (Math.abs(pm.x - em.x) < CD) {
+            const pHp = pm.hp, eHp = em.hp;
+            pm.hp -= eHp;
+            em.hp -= pHp;
+            if (pm.hp <= 0) { pm._dying = true; pm._corpseFrames = 20; }
+            if (em.hp <= 0) { em._dying = true; em._corpseFrames = 20; }
+            engaged.add(pi); engaged.add(ei);
+            break;
+          }
+        }
+      }
+    }
+    // 시체 프레임 감소
+    for (const m of this.mobs) {
+      if (m._dying && m._corpseFrames > 0) {
+        m._corpseFrames--;
+        if (m._corpseFrames <= 0) m._dead = true;
+      }
+    }
+    if (this.mobs.some(m => m._dead)) this.mobs = this.mobs.filter(m => !m._dead);
+  }
+
+  updateTowers() {
+    Object.values(this.towers).forEach(t => {
+      if (!t.built || t.hp <= 0) return;
+      const lv = CONFIG.towerLevels[t.level || 0];
+      const attackerOwner = t.owner === 'player' ? 'enemy' : 'player';
+      const attackers = this.mobs.filter(m => !m._dying && !m._dead && m.owner === attackerOwner && m.lane === t.lane && Math.abs(m.x - t.x) < 25);
+      if (attackers.length > 0) {
+        t.hp -= attackers.length * 0.8;
+        if (t.hp <= 0) t.hp = 0;
+      }
+      if (t.hp <= 0) return;
+      t.fireTimer++;
+      if (t.fireTimer < lv.fireRate) return;
+      const targetOwner = attackerOwner;
+      const targets = this.mobs
+        .map((m, i) => ({ m, i }))
+        .filter(({ m }) => !m._dying && !m._dead && m.owner === targetOwner && m.lane === t.lane && Math.abs(m.x - t.x) < lv.range);
+      if (targets.length > 0) {
+        const shots = Math.min(lv.damage, targets.length);
+        let killCount = 0;
+        for (let k = 0; k < shots; k++) {
+          const tg = targets[k];
+          this.mobs[tg.i].hp -= 1;
+          if (this.mobs[tg.i].hp <= 0) {
+            this.mobs[tg.i]._dying = true;
+            this.mobs[tg.i]._corpseFrames = 1;
+            killCount++;
+          }
+        }
+        if (killCount > 0) {
+          if (t.owner === 'player') this.playerGold += CONFIG.goldPerKill * killCount;
+          else this.enemyGold += CONFIG.goldPerKill * killCount;
+        }
+        t.fireTimer = 0;
+      }
+    });
+  }
+
+  updateBaseArrows() {
+    if (this.baseArrows.length === 0) return;
+    const kept = [];
+    for (const a of this.baseArrows) {
+      a.x += a.vx;
+      a.life--;
+      if (a.life <= 0 || a.x < 0 || a.x > CONFIG.canvasW) continue;
+      if (a.owner === 'player' && a.x > LAYOUT.p2) continue;
+      if (a.owner === 'enemy' && a.x < LAYOUT.e2) continue;
+      const oppSide = a.owner === 'player' ? 'enemy' : 'player';
+      let hit = false;
+      for (const m of this.mobs) {
+        if (m._dying || m._dead) continue;
+        if (m.owner !== oppSide || m.lane !== a.lane) continue;
+        if (Math.abs(m.x - a.x) < 8) {
+          m.hp -= a.damage;
+          if (m.hp <= 0) {
+            m._dying = true;
+            m._corpseFrames = 1;
+            if (a.owner === 'player') this.playerGold += CONFIG.goldPerKill;
+            else this.enemyGold += CONFIG.goldPerKill;
+          }
+          hit = true;
+          break;
+        }
+      }
+      if (!hit) kept.push(a);
+    }
+    this.baseArrows = kept;
+  }
+
+  updateRocks() {
+    if (this.rocks.length === 0) return;
+    const kept = [];
+    for (const r of this.rocks) {
+      r.x += r.vx;
+      r.life--;
+      if (r.owner === 'player' && r.x >= LAYOUT.e2) continue;
+      if (r.owner === 'enemy' && r.x <= LAYOUT.p2) continue;
+      if (r.life <= 0) continue;
+      const oppSide = r.owner === 'player' ? 'enemy' : 'player';
+      for (const m of this.mobs) {
+        if (m._dying || m._dead) continue;
+        if (m.owner !== oppSide || m.lane !== r.lane) continue;
+        if (Math.abs(m.x - r.x) < r.size + 6) {
+          m.hp = 0;
+          m._dying = true;
+          m._corpseFrames = 1;
+          if (r.owner === 'player') this.playerGold += CONFIG.goldPerKill;
+          else this.enemyGold += CONFIG.goldPerKill;
+        }
+      }
+      kept.push(r);
+    }
+    this.rocks = kept;
+  }
+
+  runAI(side) {
+    const strat = side === 'player' ? this.stratP : this.stratE;
+
+    // 화살 발사 (프레임마다 호출, 전략의 shouldFireArrow 결정)
+    if (strat.shouldFireArrow) {
+      for (let lane = 0; lane < 3; lane++) {
+        if (strat.shouldFireArrow(this, side, lane)) {
+          this.fireBaseArrow(side, lane);
+        }
+      }
+    }
+
+    // 액션 타이머
+    const tKey = side === 'player' ? 'playerAiTimer' : 'enemyAiTimer';
+    this[tKey]++;
+    if (this[tKey] < (strat.aiInterval || 180)) return;
+    this[tKey] = 0;
+
+    const action = strat.decide ? strat.decide(this, side) : null;
+    if (!action) return;
+    if (action.type === 'build') this.build(action.id);
+    else if (action.type === 'upgrade') this.upgradePortal(action.id);
+    else if (action.type === 'upgrade-tower') this.upgradeTower(action.id);
+    else if (action.type === 'upgrade-hp') this.upgradeMobHp(side);
+  }
+
+  tick() {
+    if (this.winner) return;
+    this.frame++;
+    this.playerGold += CONFIG.goldPerFrame;
+    this.enemyGold += CONFIG.goldPerFrame;
+
+    this.playerSpawnTimer++;
+    if (this.playerSpawnTimer >= CONFIG.baseSpawnInterval) {
+      this.spawn('player');
+      this.playerSpawnTimer = 0;
+    }
+    this.enemySpawnTimer++;
+    if (this.enemySpawnTimer >= CONFIG.baseSpawnInterval) {
+      this.spawn('enemy');
+      this.enemySpawnTimer = 0;
+    }
+
+    Object.values(this.portals).forEach(p => { if (p.cooldown > 0) p.cooldown--; });
+
+    this.updateMobs();
+    this.updateMobCollisions();
+    this.updateTowers();
+    this.updateBaseArrows();
+    this.updateRocks();
+
+    for (let i = 0; i < 3; i++) {
+      if (this.playerFireCd[i] > 0) this.playerFireCd[i]--;
+      if (this.enemyFireCd[i] > 0) this.enemyFireCd[i]--;
+    }
+
+    this.runAI('player');
+    this.runAI('enemy');
+  }
+}
+
+// =============================================================
+// 전략 유틸
+// =============================================================
+function listAvailableActions(game, side) {
+  const gold = game.goldOf(side);
+  const acts = [];
+  Object.entries(game.portals).forEach(([id, p]) => {
+    if (p.owner !== side) return;
+    if (!p.built) {
+      acts.push({ type: 'build', id, cost: CONFIG.buildPortalCost, what: 'portal' });
+    } else if (p.cooldown <= 0) {
+      const idx = OP_LIST.indexOf(p.op);
+      if (idx < OP_LIST.length - 1) {
+        acts.push({ type: 'upgrade', id, cost: OPERATORS[p.op].upgradeCost });
+      }
+    }
+  });
+  Object.entries(game.towers).forEach(([id, t]) => {
+    if (t.owner !== side) return;
+    if (!t.built) {
+      acts.push({ type: 'build', id, cost: CONFIG.buildTowerCost, what: 'tower' });
+    } else if (t.hp > 0) {
+      const cur = t.level || 0;
+      if (cur < CONFIG.towerLevels.length - 1) {
+        acts.push({ type: 'upgrade-tower', id, cost: CONFIG.towerLevels[cur].upgradeCost });
+      }
+    }
+  });
+  const hpLvl = side === 'player' ? game.playerMobHpLevel : game.enemyMobHpLevel;
+  if (hpLvl < CONFIG.mobHpMaxLevel) {
+    acts.push({ type: 'upgrade-hp', cost: game.getMobHpCost(side) });
+  }
+  return acts.filter(a => a.cost <= gold);
+}
+
+function isMidLane(id) { return !id.endsWith('u') && !id.endsWith('d'); }
+
+// 기본 화살 발사: 해당 라인에 살아있는 적 몹이 있으면 쏨 (사거리 내·외 모두)
+// 돌굴리기 스킬 발동을 위한 카운트도 함께 누적되므로 자주 쏘는 게 이득
+function defaultShouldFireArrow(game, side, lane) {
+  const cdArr = side === 'player' ? game.playerFireCd : game.enemyFireCd;
+  if (cdArr[lane] > 0) return false;
+  const oppSide = side === 'player' ? 'enemy' : 'player';
+  return game.mobs.some(m => !m._dying && !m._dead &&
+    m.owner === oppSide && m.lane === lane);
+}
+
+// =============================================================
+// 전략 프로파일
+// =============================================================
+const STRATEGIES = [
+  {
+    name: 'Balanced',
+    description: '골드 범위 내 저비용 액션 무작위. 현재 MEDIUM AI 기준선.',
+    aiInterval: 180,
+    decide(game, side) {
+      const acts = listAvailableActions(game, side);
+      if (!acts.length) return null;
+      acts.sort((a, b) => a.cost - b.cost);
+      return acts[Math.floor(game.rng() * Math.min(3, acts.length))];
+    },
+    shouldFireArrow: defaultShouldFireArrow,
+  },
+  {
+    name: 'Rush (중앙)',
+    description: '중앙 라인 포털을 가장 뒷단(p3/e3)부터 최상위로 밀어올림.',
+    aiInterval: 120,
+    decide(game, side) {
+      const acts = listAvailableActions(game, side);
+      // 뒷단 포털 우선 (p3/e3 → p2/e2 → p1/e1). 효과가 누적되어 증식이 극대화됨
+      const midUpgrades = acts.filter(a => a.type === 'upgrade' && isMidLane(a.id));
+      midUpgrades.sort((a, b) => {
+        const pri = id => id.startsWith('p3') || id.startsWith('e3') ? 0
+                        : id.startsWith('p2') || id.startsWith('e2') ? 1
+                        : 2;
+        return pri(a.id) - pri(b.id);
+      });
+      if (midUpgrades[0]) return midUpgrades[0];
+      const midTower = acts.find(a => a.type === 'upgrade-tower' && isMidLane(a.id));
+      return midTower || null;
+    },
+    shouldFireArrow: defaultShouldFireArrow,
+  },
+  {
+    name: 'Expand (3라인)',
+    description: '상·하 라인 빨리 BUILD, 3라인 전체 운영.',
+    aiInterval: 120,
+    decide(game, side) {
+      const acts = listAvailableActions(game, side);
+      const sideBuildP = acts.find(a => a.type === 'build' && a.what === 'portal' && !isMidLane(a.id));
+      if (sideBuildP) return sideBuildP;
+      const sideBuildT = acts.find(a => a.type === 'build' && a.what === 'tower' && !isMidLane(a.id));
+      if (sideBuildT) return sideBuildT;
+      const anyUp = acts.find(a => a.type === 'upgrade');
+      return anyUp || null;
+    },
+    shouldFireArrow: defaultShouldFireArrow,
+  },
+  {
+    name: 'TowerTurtle',
+    description: '타워 레벨 우선 방어형. 몹 증식은 최소.',
+    aiInterval: 150,
+    decide(game, side) {
+      const acts = listAvailableActions(game, side);
+      const towerUp = acts.find(a => a.type === 'upgrade-tower');
+      if (towerUp) return towerUp;
+      const buildT = acts.find(a => a.type === 'build' && a.what === 'tower');
+      if (buildT) return buildT;
+      const midUp = acts.find(a => a.type === 'upgrade' && isMidLane(a.id));
+      return midUp || null;
+    },
+    shouldFireArrow: defaultShouldFireArrow,
+  },
+  {
+    name: 'HpBomb',
+    description: '몹 HP 강화를 위해 골드 저축. HP 꽉 차면 중앙 포털.',
+    aiInterval: 150,
+    decide(game, side) {
+      const hpLvl = side === 'player' ? game.playerMobHpLevel : game.enemyMobHpLevel;
+      const gold = game.goldOf(side);
+      // HP UP이 남아있으면 저축 우선
+      if (hpLvl < CONFIG.mobHpMaxLevel) {
+        const hpCost = game.getMobHpCost(side);
+        if (gold >= hpCost) return { type: 'upgrade-hp' };
+        // 비용의 40% 이상 모였으면 나머지는 저축 (아무것도 안 함)
+        if (gold >= hpCost * 0.4) return null;
+      }
+      // HP 업 거리가 멀거나 끝났으면 저비용 중앙 포털로 시간 벌기
+      const acts = listAvailableActions(game, side);
+      const midUp = acts.find(a => a.type === 'upgrade' && isMidLane(a.id));
+      return midUp || null;
+    },
+    shouldFireArrow: defaultShouldFireArrow,
+  },
+  {
+    name: 'ArrowSpam',
+    description: '본진 화살 난사로 돌굴리기 스킬 사이클 극대화.',
+    aiInterval: 180,
+    decide(game, side) {
+      const acts = listAvailableActions(game, side);
+      // 타워 건설·업그레이드 우선 (본진 화살 보조)
+      const buildT = acts.find(a => a.type === 'build' && a.what === 'tower' && isMidLane(a.id));
+      if (buildT) return buildT;
+      const towerUp = acts.find(a => a.type === 'upgrade-tower' && isMidLane(a.id));
+      if (towerUp) return towerUp;
+      const midUp = acts.find(a => a.type === 'upgrade' && isMidLane(a.id));
+      return midUp || null;
+    },
+    // 쿨다운만 허용되면 무조건 3라인 모두 쏨
+    shouldFireArrow(game, side, lane) {
+      const cdArr = side === 'player' ? game.playerFireCd : game.enemyFireCd;
+      return cdArr[lane] === 0;
+    },
+  },
+  {
+    name: 'Adaptive',
+    description: '골드가 많으면 큰 업그레이드, 부족하면 저비용 액션.',
+    aiInterval: 120,
+    decide(game, side) {
+      const acts = listAvailableActions(game, side);
+      if (!acts.length) return null;
+      const gold = game.goldOf(side);
+      // 위협 감지: 내 본진 앞 300px 이내에 적이 많으면 타워·방어 우선
+      const myBase = side === 'player' ? LAYOUT.playerBaseX : LAYOUT.enemyBaseX;
+      const oppSide = side === 'player' ? 'enemy' : 'player';
+      const nearThreat = game.mobs.filter(m => !m._dying && m.owner === oppSide && Math.abs(m.x - myBase) < 300).length;
+      if (nearThreat > 3) {
+        const towerUp = acts.find(a => a.type === 'upgrade-tower');
+        if (towerUp) return towerUp;
+        const buildT = acts.find(a => a.type === 'build' && a.what === 'tower');
+        if (buildT) return buildT;
+      }
+      // 골드가 풍부하면 HP UP
+      if (gold > 500) {
+        const hpUp = acts.find(a => a.type === 'upgrade-hp');
+        if (hpUp) return hpUp;
+      }
+      // 기본: 가장 저렴한 업그레이드
+      const upgrades = acts.filter(a => a.type === 'upgrade' || a.type === 'upgrade-tower');
+      upgrades.sort((a, b) => a.cost - b.cost);
+      if (upgrades[0]) return upgrades[0];
+      acts.sort((a, b) => a.cost - b.cost);
+      return acts[0];
+    },
+    shouldFireArrow: defaultShouldFireArrow,
+  },
+];
+
+// =============================================================
+// Match & Batch Runner
+// =============================================================
+function runMatch(stratP, stratE, seed, maxFrames) {
+  const game = new HeadlessGame(seed, stratP, stratE);
+  while (!game.winner && game.frame < maxFrames) {
+    game.tick();
+  }
+  return {
+    winner: game.winner || (game.playerHp > game.enemyHp ? 'player' : (game.enemyHp > game.playerHp ? 'enemy' : 'draw')),
+    timedOut: !game.winner,
+    frames: game.frame,
+    playerHp: Math.max(0, game.playerHp),
+    enemyHp: Math.max(0, game.enemyHp),
+  };
+}
+
+let stopRequested = false;
+
+async function runBatch(selected, gamesPerPair, maxFrames, baseSeed, chunkSize) {
+  const n = selected.length;
+  const results = {};
+  const totalMatches = n * n * gamesPerPair;
+  let done = 0;
+  const startTime = performance.now();
+
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (stopRequested) return { results, stopped: true };
+      const key = `${i}_${j}`;
+      results[key] = { wins: 0, losses: 0, draws: 0, timeouts: 0, frames: 0, pHpSum: 0, eHpSum: 0 };
+      for (let g = 0; g < gamesPerPair; g++) {
+        if (stopRequested) return { results, stopped: true };
+        const seed = baseSeed + i * 1000003 + j * 1013 + g * 7;
+        const r = runMatch(selected[i], selected[j], seed, maxFrames);
+        if (r.winner === 'player') results[key].wins++;
+        else if (r.winner === 'enemy') results[key].losses++;
+        else results[key].draws++;
+        if (r.timedOut) results[key].timeouts++;
+        results[key].frames += r.frames;
+        results[key].pHpSum += r.playerHp;
+        results[key].eHpSum += r.enemyHp;
+        done++;
+        if (done % chunkSize === 0) {
+          updateProgress(done, totalMatches, startTime);
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+    }
+  }
+  updateProgress(totalMatches, totalMatches, startTime);
+  return { results, stopped: false };
+}
+
+// =============================================================
+// UI
+// =============================================================
+function $(id) { return document.getElementById(id); }
+
+function renderStrategyList() {
+  const host = $('stratList');
+  host.innerHTML = '';
+  STRATEGIES.forEach((s, idx) => {
+    const row = document.createElement('label');
+    row.className = 'strat-row';
+    row.innerHTML = `
+      <input type="checkbox" value="${idx}" ${idx < 4 ? 'checked' : ''}>
+      <div>
+        <div class="nm">${s.name}</div>
+        <div class="ds">${s.description}</div>
+      </div>
+    `;
+    host.appendChild(row);
+  });
+}
+
+function getSelectedStrategies() {
+  const boxes = document.querySelectorAll('#stratList input[type="checkbox"]:checked');
+  return [...boxes].map(b => STRATEGIES[parseInt(b.value)]);
+}
+
+function updateProgress(done, total, startTime) {
+  const pct = total === 0 ? 0 : (done / total) * 100;
+  $('progressFill').style.width = pct.toFixed(1) + '%';
+  $('progressLabel').textContent = `${done} / ${total}`;
+  const elapsed = (performance.now() - startTime) / 1000;
+  const rate = done / Math.max(0.001, elapsed);
+  const remaining = (total - done) / Math.max(0.001, rate);
+  $('progressText').textContent =
+    `${pct.toFixed(1)}% · ${rate.toFixed(1)} games/s · 남은 시간 ${remaining.toFixed(0)}s · 경과 ${elapsed.toFixed(0)}s`;
+}
+
+function colorClass(winPct) {
+  if (winPct >= 65) return 'win-hi';
+  if (winPct >= 53) return 'win-md';
+  if (winPct <= 35) return 'lose-hi';
+  if (winPct <= 47) return 'lose-md';
+  return '';
+}
+
+function renderResults(selected, results, gamesPerPair) {
+  const n = selected.length;
+  let html = '<table class="result-table"><thead><tr><th class="row-hdr">vs →</th>';
+  for (let j = 0; j < n; j++) {
+    html += `<th>${selected[j].name}</th>`;
+  }
+  html += '<th>평균</th></tr></thead><tbody>';
+
+  // 각 전략의 평균 승률 계산
+  const avgWin = new Array(n).fill(0);
+  const avgCount = new Array(n).fill(0);
+
+  for (let i = 0; i < n; i++) {
+    html += `<tr><th class="row-hdr">${selected[i].name}</th>`;
+    for (let j = 0; j < n; j++) {
+      if (i === j) {
+        html += '<td class="diag">—</td>';
+        continue;
+      }
+      const r = results[`${i}_${j}`];
+      const total = r.wins + r.losses + r.draws;
+      const winPct = total ? (r.wins / total) * 100 : 0;
+      avgWin[i] += winPct;
+      avgCount[i]++;
+      const cls = colorClass(winPct);
+      const avgP = total ? (r.pHpSum / total).toFixed(0) : '0';
+      const avgE = total ? (r.eHpSum / total).toFixed(0) : '0';
+      html += `<td class="${cls}"><div class="pct">${winPct.toFixed(1)}%</div>` +
+        `<div class="raw">${r.wins}W ${r.losses}L ${r.draws}D</div>` +
+        `<div class="raw">HP ${avgP}:${avgE}</div>` +
+        (r.timeouts > 0 ? `<div class="raw">⌛${r.timeouts}</div>` : '') +
+        `</td>`;
+    }
+    const avg = avgCount[i] ? avgWin[i] / avgCount[i] : 0;
+    const avgCls = colorClass(avg);
+    html += `<td class="${avgCls}"><div class="pct">${avg.toFixed(1)}%</div></td>`;
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  $('resultTable').innerHTML = html;
+
+  // 전략별 요약 카드
+  const summary = [];
+  for (let i = 0; i < n; i++) {
+    const avg = avgCount[i] ? avgWin[i] / avgCount[i] : 0;
+    let cls = 'mid';
+    if (avg >= 55) cls = '';
+    else if (avg <= 40) cls = 'low';
+    summary.push({ name: selected[i].name, avg, cls });
+  }
+  summary.sort((a, b) => b.avg - a.avg);
+  $('summary').innerHTML = summary.map((s, rank) => `
+    <div class="summary-card">
+      <div class="nm">#${rank + 1} · ${s.name}</div>
+      <div class="rate ${s.cls}">${s.avg.toFixed(1)}%</div>
+      <div class="det">다른 전략 ${n - 1}개 대비 평균 승률<br>대결당 ${gamesPerPair}게임</div>
+    </div>
+  `).join('');
+}
+
+function appendLog(msg) {
+  const box = $('logBox');
+  const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  box.textContent = (box.textContent ? box.textContent + '\n' : '') + line;
+  box.scrollTop = box.scrollHeight;
+}
+
+async function handleRun() {
+  const selected = getSelectedStrategies();
+  if (selected.length < 2) {
+    alert('최소 2개 이상의 전략을 선택하세요');
+    return;
+  }
+  const gamesPerPair = parseInt($('gamesPerPair').value) || 30;
+  const maxFrames = parseInt($('maxFrames').value) || 5400;
+  const baseSeed = parseInt($('baseSeed').value) || 1;
+  const chunkSize = parseInt($('tickChunk').value) || 60;
+
+  $('progressPanel').classList.remove('hidden');
+  $('resultPanel').classList.add('hidden');
+  $('logPanel').classList.remove('hidden');
+  $('runBtn').disabled = true;
+  $('stopBtn').disabled = false;
+  $('statusLabel').textContent = '실행 중…';
+  stopRequested = false;
+
+  const totalMatches = selected.length * selected.length * gamesPerPair;
+  appendLog(`시작 — 전략 ${selected.length}개, 대결당 ${gamesPerPair}게임, 총 ${totalMatches}게임`);
+  appendLog(`시드: ${baseSeed}, 최대 프레임: ${maxFrames}`);
+
+  try {
+    const t0 = performance.now();
+    const { results, stopped } = await runBatch(selected, gamesPerPair, maxFrames, baseSeed, chunkSize);
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+
+    if (stopped) {
+      appendLog(`중단됨 (${elapsed}s)`);
+    } else {
+      appendLog(`완료 (${elapsed}s)`);
+    }
+    renderResults(selected, results, gamesPerPair);
+    $('resultPanel').classList.remove('hidden');
+    $('statusLabel').textContent = stopped ? '중단됨' : `완료 (${elapsed}s)`;
+  } catch (err) {
+    appendLog(`오류: ${err.message}`);
+    $('statusLabel').textContent = '오류 발생';
+    console.error(err);
+  } finally {
+    $('runBtn').disabled = false;
+    $('stopBtn').disabled = true;
+    stopRequested = false;
+  }
+}
+
+function handleStop() {
+  stopRequested = true;
+  appendLog('중단 요청됨…');
+  $('statusLabel').textContent = '중단 요청됨…';
+}
+
+// 초기화
+renderStrategyList();
+$('runBtn').addEventListener('click', handleRun);
+$('stopBtn').addEventListener('click', handleStop);
+</script>
+</body>
+</html>
